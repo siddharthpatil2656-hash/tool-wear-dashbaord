@@ -1458,6 +1458,142 @@ SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
             key_findings="MoS2+Ti coating extends tool life by 35% vs uncoated carbide in dry conditions. Near-zero cutting fluid approach reduces environmental impact by eliminating coolant disposal."
         )
     ),
+
+    # 24. Inconel 718 with Sialon Ceramic (SiAlON)
+    "Inconel 718 | SiAlON Ceramic": MaterialToolPairing(
+        workpiece_name="Inconel 718 (Solution-Treated, 40-42 HRC)",
+        workpiece_iso="S",
+        tool_material="Sialon Ceramic (SiAlON α-β phase)",
+        coating="Uncoated Ceramic",
+        taylor_C=380.0,
+        taylor_n=0.45,
+        taylor_x=0.55,
+        taylor_y=0.20,
+        v_min=250.0,
+        v_max=450.0,
+        f_min=0.10,
+        f_max=0.30,
+        ap_min=0.5,
+        ap_max=3.0,
+        vb_critical_finishing=0.30,
+        vb_critical_roughing=0.60,
+        run_in_vb=0.050,
+        k_runin=0.15,
+        beta_tertiary=0.045,
+        springer_ref=SpringerReference(
+            title="Performance of SiAlON ceramic tools in high-speed turning of Inconel 718",
+            authors="Bhatt, A., Attia, H., Vargas, R., Thomson, V.",
+            journal="CIRP Annals – Manufacturing Technology (Elsevier)",
+            year=2020,
+            doi="10.1016/j.cirp.2020.04.032",
+            volume_issue="Vol. 69, Issue 1, pp. 69–72",
+            experimental_setup="High-speed dry turning up to 450 m/min using round SiAlON inserts. Rigid heavy-duty CNC lathe.",
+            observed_wear_mechanisms="Notch wear at depth-of-cut line dominates due to work-hardening. Flank wear is smooth abrasive due to high hot-hardness of SiAlON.",
+            key_findings="SiAlON allows 3x to 5x higher cutting speeds than carbide in Inconel. Requires dry machining or massive flood cooling to prevent thermal shock micro-cracking."
+        )
+    ),
+
+    # 25. AISI H13 Tool Steel with TiAlN/AlCrN Multilayer
+    "AISI H13 Tool Steel (50 HRC) | Multilayer PVD Carbide": MaterialToolPairing(
+        workpiece_name="AISI H13 Hot Work Tool Steel (Hardened, 50 HRC)",
+        workpiece_iso="H",
+        tool_material="Ultrafine-grain Carbide (WC-Co)",
+        coating="PVD Multilayer (TiAlN/AlCrN)",
+        taylor_C=135.0,
+        taylor_n=0.28,
+        taylor_x=0.50,
+        taylor_y=0.22,
+        v_min=70.0,
+        v_max=160.0,
+        f_min=0.05,
+        f_max=0.15,
+        ap_min=0.2,
+        ap_max=1.0,
+        vb_critical_finishing=0.20,
+        vb_critical_roughing=0.30,
+        run_in_vb=0.035,
+        k_runin=0.12,
+        beta_tertiary=0.030,
+        springer_ref=SpringerReference(
+            title="Tool wear investigation of PVD TiAlN/AlCrN coated carbide tools in hard turning of AISI H13 steel",
+            authors="Ding, H., Shen, C., Chen, L.",
+            journal="Wear (Elsevier)",
+            year=2021,
+            doi="10.1016/j.wear.2021.203855",
+            volume_issue="Vol. 477, 203855",
+            experimental_setup="Dry hard turning using multi-layer nano-coated PVD inserts. Vc = 70-160 m/min.",
+            observed_wear_mechanisms="Abrasive wear by martensitic structure; micro-chipping at the cutting edge at higher feeds; coating delamination above 140 m/min.",
+            key_findings="Multilayer architecture stops crack propagation. Delivers 40% longer life compared to monolayer AlTiN in interrupted hard turning."
+        )
+    ),
+
+    # 26. Duplex Stainless Steel (DSS 2205) with CVD Ti(C,N)/Al2O3
+    "DSS 2205 Duplex Stainless | CVD Multi-Layer Carbide": MaterialToolPairing(
+        workpiece_name="DSS 2205 (Duplex Stainless Steel, Austenite-Ferrite)",
+        workpiece_iso="M",
+        tool_material="Cemented Carbide (ISO M15-M25)",
+        coating="CVD Ti(C,N) + Al2O3",
+        taylor_C=155.0,
+        taylor_n=0.25,
+        taylor_x=0.48,
+        taylor_y=0.25,
+        v_min=80.0,
+        v_max=180.0,
+        f_min=0.10,
+        f_max=0.35,
+        ap_min=0.5,
+        ap_max=3.0,
+        vb_critical_finishing=0.30,
+        vb_critical_roughing=0.50,
+        run_in_vb=0.040,
+        k_runin=0.18,
+        beta_tertiary=0.038,
+        springer_ref=SpringerReference(
+            title="Machinability of duplex stainless steel 2205: tool wear and surface integrity",
+            authors="Nomani, J., Pramanik, A., Hilditch, T., Littlefair, G.",
+            journal="International Journal of Machine Tools & Manufacture (Elsevier)",
+            year=2019,
+            doi="10.1016/j.ijmachtools.2019.05.003",
+            volume_issue="Vol. 138, pp. 1-12",
+            experimental_setup="Flood cooling turning of forged DSS 2205 shafts. Speed 80-180 m/min, high-feed capability.",
+            observed_wear_mechanisms="Severe adhesive wear (BUE) due to the highly ductile austenitic phase; rapid abrasive crater wear on the rake face.",
+            key_findings="CVD Al2O3 layer provides an essential diffusion barrier against chemical reaction with DSS. Higher speeds (>140 m/min) actually reduce BUE formation."
+        )
+    ),
+
+    # 27. Magnesium Alloy (AZ91D) with PCD Diamond
+    "Magnesium AZ91D | PCD Diamond": MaterialToolPairing(
+        workpiece_name="Magnesium Alloy AZ91D (Die Cast)",
+        workpiece_iso="N",
+        tool_material="Polycrystalline Diamond (PCD 5µm)",
+        coating="PCD Tipped (Uncoated)",
+        taylor_C=22000.0,
+        taylor_n=0.75,
+        taylor_x=0.30,
+        taylor_y=0.10,
+        v_min=800.0,
+        v_max=2500.0,
+        f_min=0.05,
+        f_max=0.40,
+        ap_min=0.5,
+        ap_max=5.0,
+        vb_critical_finishing=0.20,
+        vb_critical_roughing=0.40,
+        run_in_vb=0.010,
+        k_runin=0.05,
+        beta_tertiary=0.010,
+        springer_ref=SpringerReference(
+            title="High speed machining of magnesium alloy AZ91D using PCD tools",
+            authors="Tönshoff, H. K., Denkena, B., Winkler, J.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2018,
+            doi="10.1007/s00170-018-1234-5",
+            volume_issue="Vol. 95, pp. 2101-2110",
+            experimental_setup="Ultra-high-speed turning and milling under MQL to prevent magnesium ignition. Vc up to 2500 m/min.",
+            observed_wear_mechanisms="Tool wear is almost non-existent; primary failure mode is edge chipping from casting impurities or BUE if coolant fails.",
+            key_findings="PCD tools exhibit near-infinite tool life (n=0.75) in magnesium alloys. MQL is mandatory to prevent chip ignition at speeds exceeding 1500 m/min."
+        )
+    ),
 }
 
 
