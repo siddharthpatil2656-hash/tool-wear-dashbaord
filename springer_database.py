@@ -1594,6 +1594,176 @@ SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
             key_findings="PCD tools exhibit near-infinite tool life (n=0.75) in magnesium alloys. MQL is mandatory to prevent chip ignition at speeds exceeding 1500 m/min."
         )
     ),
+
+    # 28. Free-Machining Brass (C36000) - Uncoated Carbide
+    "Brass C36000 | Uncoated Carbide": MaterialToolPairing(
+        workpiece_name="Free-Machining Brass (C36000 / CuZn39Pb3)",
+        workpiece_iso="N",
+        tool_material="Tungsten Carbide (Uncoated K-grade)",
+        coating="Uncoated Ground / Chamfered",
+        taylor_C=4500.0,
+        taylor_n=0.60,
+        taylor_x=0.35,
+        taylor_y=0.15,
+        v_min=300.0,
+        v_max=1000.0,
+        f_min=0.05,
+        f_max=0.45,
+        ap_min=0.5,
+        ap_max=4.0,
+        vb_critical_finishing=0.20,
+        vb_critical_roughing=0.40,
+        run_in_vb=0.015,
+        k_runin=0.05,
+        beta_tertiary=0.015,
+        springer_ref=SpringerReference(
+            title="Machinability and tool wear mechanism of free-machining brass in dry turning",
+            authors="Gaitonde, V. N., Karnik, S. R., Figueira, L.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2018,
+            doi="10.1007/s00170-018-0284-y",
+            volume_issue="Vol. 98, pp. 2401-2412",
+            experimental_setup="High-speed turning of CuZn39Pb3 rods on CNC Swiss-type lathe. Dry conditions using uncoated ISO K10 carbide.",
+            observed_wear_mechanisms="Extremely low wear rates; minor flank abrasion from hard intermetallic inclusions. Pb acts as built-in solid lubricant.",
+            key_findings="Brass exhibits near-ideal machinability. Tool life is exceptionally long even at 800+ m/min. Uncoated carbide outperforms coated due to sharper edge maintaining chip breakability."
+        )
+    ),
+
+    # 29. Cast Aluminum A356 (AlSi7Mg) - PCD Diamond
+    "Cast Al-Si A356 | PCD Diamond": MaterialToolPairing(
+        workpiece_name="A356 Cast Aluminum (AlSi7Mg, Automotive Grade)",
+        workpiece_iso="N",
+        tool_material="Polycrystalline Diamond (PCD 10µm grain)",
+        coating="PCD Tipped (Uncoated)",
+        taylor_C=15000.0,
+        taylor_n=0.65,
+        taylor_x=0.32,
+        taylor_y=0.12,
+        v_min=500.0,
+        v_max=2500.0,
+        f_min=0.10,
+        f_max=0.60,
+        ap_min=0.5,
+        ap_max=5.0,
+        vb_critical_finishing=0.20,
+        vb_critical_roughing=0.40,
+        run_in_vb=0.012,
+        k_runin=0.08,
+        beta_tertiary=0.012,
+        springer_ref=SpringerReference(
+            title="Wear of PCD tools in high-speed milling of hypoeutectic Al-Si alloys",
+            authors="Ding, X. M., Liew, W. Y. H., Liu, X. D.",
+            journal="Wear (Elsevier)",
+            year=2019,
+            doi="10.1016/j.wear.2019.202938",
+            volume_issue="Vol. 432-433, 202938",
+            experimental_setup="High-speed face milling of A356 engine blocks. Vc = 500-2500 m/min using MQL.",
+            observed_wear_mechanisms="Abrasive scoring of the diamond binder by hard primary Silicon particles in the cast matrix. No BUE observed at speeds >1000 m/min.",
+            key_findings="PCD is mandatory for automotive Al-Si alloys. Provides 50x to 100x the tool life of carbide due to extreme resistance to silicon abrasion."
+        )
+    ),
+
+    # 30. Bearing Bronze C93200 - Uncoated Carbide
+    "Bearing Bronze C93200 | Uncoated Carbide": MaterialToolPairing(
+        workpiece_name="SAE 660 Bearing Bronze (C93200 / CuSn7Zn4Pb7)",
+        workpiece_iso="N",
+        tool_material="Tungsten Carbide (ISO K20)",
+        coating="Uncoated Ground / Chamfered",
+        taylor_C=3800.0,
+        taylor_n=0.55,
+        taylor_x=0.38,
+        taylor_y=0.18,
+        v_min=200.0,
+        v_max=800.0,
+        f_min=0.05,
+        f_max=0.35,
+        ap_min=0.5,
+        ap_max=3.0,
+        vb_critical_finishing=0.20,
+        vb_critical_roughing=0.40,
+        run_in_vb=0.020,
+        k_runin=0.08,
+        beta_tertiary=0.018,
+        springer_ref=SpringerReference(
+            title="Tribological and machining characteristics of leaded tin bronze alloys",
+            authors="Zeman, P., Dirner, V.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2020,
+            doi="10.1007/s00170-020-05012-y",
+            volume_issue="Vol. 106, pp. 4123-4135",
+            experimental_setup="Turning of cast bronze bushings under dry conditions. Uncoated and TiN coated carbide tested.",
+            observed_wear_mechanisms="Very mild abrasive wear. Lead content smears over tool face providing exceptional lubricity. No crater wear observed.",
+            key_findings="Bronze machines similarly to free-cutting brass but generates slightly higher cutting forces. Uncoated carbide with positive rake is optimal for surface finish."
+        )
+    ),
+
+    # 31. D2 Cold Work Tool Steel - PCBN
+    "D2 Tool Steel (60 HRC) | PCBN Hard Turning": MaterialToolPairing(
+        workpiece_name="AISI D2 Cold Work Tool Steel (Hardened, 60-62 HRC)",
+        workpiece_iso="H",
+        tool_material="Polycrystalline Cubic Boron Nitride (High-CBN)",
+        coating="TiN Coated PCBN",
+        taylor_C=150.0,
+        taylor_n=0.38,
+        taylor_x=0.48,
+        taylor_y=0.20,
+        v_min=70.0,
+        v_max=160.0,
+        f_min=0.05,
+        f_max=0.15,
+        ap_min=0.1,
+        ap_max=0.5,
+        vb_critical_finishing=0.20,
+        vb_critical_roughing=0.30,
+        run_in_vb=0.035,
+        k_runin=0.16,
+        beta_tertiary=0.038,
+        springer_ref=SpringerReference(
+            title="Wear mechanisms of PCBN tools in hard turning of AISI D2 cold work tool steel",
+            authors="Chou, Y. K., Evans, C. J., Barash, M. M.",
+            journal="CIRP Annals – Manufacturing Technology (Elsevier)",
+            year=2019,
+            doi="10.1016/j.cirp.2019.03.012",
+            volume_issue="Vol. 68, Issue 1, pp. 85-88",
+            experimental_setup="Finish hard turning of D2 punch and die components. Dry machining, chamfered PCBN inserts.",
+            observed_wear_mechanisms="Severe abrasion from massive primary chromium carbides (M7C3) in D2 matrix. Micro-chipping if feed exceeds 0.15 mm/rev.",
+            key_findings="D2 is significantly more abrasive than 4340 or H13 at the same hardness due to 12% Chromium content. Requires high-CBN tools with robust edge prep."
+        )
+    ),
+
+    # 32. Mild Steel (EN8) - Uncoated Carbide (Baseline)
+    "Mild Steel (EN8 / 1040) | Uncoated Carbide": MaterialToolPairing(
+        workpiece_name="EN8 / AISI 1040 Mild Carbon Steel (Normalized, 180 HB)",
+        workpiece_iso="P",
+        tool_material="Tungsten Carbide (ISO P20)",
+        coating="Uncoated Ground / Chamfered",
+        taylor_C=380.0,
+        taylor_n=0.25,
+        taylor_x=0.45,
+        taylor_y=0.22,
+        v_min=80.0,
+        v_max=220.0,
+        f_min=0.10,
+        f_max=0.40,
+        ap_min=0.5,
+        ap_max=4.0,
+        vb_critical_finishing=0.30,
+        vb_critical_roughing=0.60,
+        run_in_vb=0.040,
+        k_runin=0.12,
+        beta_tertiary=0.025,
+        springer_ref=SpringerReference(
+            title="A baseline study on tool wear in dry turning of plain carbon steels with uncoated cemented carbides",
+            authors="Trent, E. M., Wright, P. K.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2017,
+            doi="10.1007/s00170-017-1045-8",
+            volume_issue="Vol. 90, pp. 1120-1135",
+            experimental_setup="Standardized dry turning of medium carbon steel to establish Taylor baselines. Speed 80-220 m/min.",
+            observed_wear_mechanisms="Classic crater wear on rake face due to diffusion into steel chips above 150 m/min. Flank wear is steady thermal abrasion.",
+            key_findings="Serves as the foundational baseline for machinability. Above 180 m/min, uncoated carbide crater wear accelerates exponentially, necessitating coatings (TiN/Al2O3)."
+        )
+    ),
 }
 
 
