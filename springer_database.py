@@ -2209,6 +2209,9 @@ class MachineCharacteristics:
     rigidity_factor: float  # Multiplier on tool life (higher rigidity = less chatter = longer tool life)
     vibration_risk: str
     spindle_power_rating: str
+    max_vc_m_per_min: float   # Cutting-parameter slider ceiling for this machine's speed envelope
+    max_feed_mm: float        # Slider ceiling for feed (unit follows the operation: mm/rev or mm/tooth)
+    max_ap_mm: float          # Slider ceiling for depth of cut envelope
     description: str
     best_practices: str
 
@@ -2220,6 +2223,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.18,
         vibration_risk="Low",
         spindle_power_rating="25 - 40 kW (High Torque)",
+        max_vc_m_per_min=500.0,
+        max_feed_mm=1.5,
+        max_ap_mm=12.0,
         description="Cast mineral or heavy polymer concrete bed with direct-drive rotary tables, active vibration damping, and linear glass scales.",
         best_practices="Leverage continuous 5-axis tool tilting to maintain optimal lead/lean angles, avoid zero-speed cutting center on ball nose tools, and maximize tool life."
     ),
@@ -2229,6 +2235,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.05,
         vibration_risk="Low to Moderate",
         spindle_power_rating="18 - 30 kW",
+        max_vc_m_per_min=350.0,
+        max_feed_mm=1.2,
+        max_ap_mm=25.0,
         description="Traditional heavy cast iron box guideways providing high vibration dampening for heavy roughing cuts and interrupted cutting.",
         best_practices="Ideal for high depth of cut (ap) and large feed rates in steels and cast irons. Keeps vibration minimal during deep shoulder milling."
     ),
@@ -2238,6 +2247,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.08,
         vibration_risk="Low",
         spindle_power_rating="15 - 25 kW",
+        max_vc_m_per_min=400.0,
+        max_feed_mm=2.0,
+        max_ap_mm=12.0,
         description="Rigid 30° to 45° slant bed with hydraulic chucking, programmable tailstock, and heavy turret for turning shafts and discs.",
         best_practices="Maintain steady overhang-to-diameter ratio (L/D < 3:1) for boring bars; use dampened anti-vibration bars for deep internal bores."
     ),
@@ -2247,6 +2259,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.12,
         vibration_risk="Moderate (Chatter Harmonics)",
         spindle_power_rating="12 - 22 kW (High Speed)",
+        max_vc_m_per_min=1200.0,
+        max_feed_mm=1.0,
+        max_ap_mm=8.0,
         description="Optimized for high-speed light cuts (trochoidal / dynamic milling) with ceramic hybrid bearings and HSK toolholders.",
         best_practices="Use high-feed radial chip thinning (ae < 10% tool diameter) and harmonic stability lobes to operate at chatter-free sweet spot RPMs."
     ),
@@ -2256,6 +2271,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.00,
         vibration_risk="Moderate",
         spindle_power_rating="11 - 18 kW",
+        max_vc_m_per_min=300.0,
+        max_feed_mm=1.0,
+        max_ap_mm=10.0,
         description="Standard linear ball/roller guideway machine tool. Industry baseline standard for cutting parameter calculations.",
         best_practices="Baseline performance. Maintain balanced tool holders (G2.5 at 10,000 RPM) to prevent spindle bearing run-out from causing uneven insert wear."
     ),
@@ -2265,6 +2283,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=0.74,
         vibration_risk="High (Backlash & Flexure)",
         spindle_power_rating="3 - 7.5 kW",
+        max_vc_m_per_min=120.0,
+        max_feed_mm=0.6,
+        max_ap_mm=4.0,
         description="Manual leadscrew driven, mechanical gearbox, prone to backlash, cross-slide flexure, and vibration during heavy cuts.",
         best_practices="Derate cutting speed by 20-30%. Avoid climb milling without backlash eliminators; choose tougher carbide grades (ISO P35) or HSS."
     ),
@@ -2274,6 +2295,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.15,
         vibration_risk="Low",
         spindle_power_rating="28 - 45 kW (High Torque)",
+        max_vc_m_per_min=500.0,
+        max_feed_mm=1.5,
+        max_ap_mm=12.0,
         description="Trunnion or gantry-style 5-axis mill with rotary tool center point control, torque motors, and thermal compensation for complex 3D aerospace contouring.",
         best_practices="Tilt the tool to maintain a consistent lead/lean angle on ball-nose finishing passes; keep the rotary axes in motion to avoid dwell marks from zero cutting speed."
     ),
@@ -2283,6 +2307,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.10,
         vibration_risk="Low",
         spindle_power_rating="22 - 37 kW",
+        max_vc_m_per_min=400.0,
+        max_feed_mm=1.3,
+        max_ap_mm=15.0,
         description="Horizontal spindle with twin-pallet APC shuttle and 3-point support bed. Excellent chip evacuation and rigidity for prismatic part batch milling.",
         best_practices="Exploit horizontal chip fall to raise feed rates ~15% over VMC equivalents; use long-edge octomill-style face mills on palletized castings for maximum uptime."
     ),
@@ -2292,6 +2319,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.08,
         vibration_risk="Low to Moderate",
         spindle_power_rating="15 - 30 kW",
+        max_vc_m_per_min=300.0,
+        max_feed_mm=1.0,
+        max_ap_mm=20.0,
         description="Fixed bed with vertically traveling spindle head and heavy box ways. Superior Z-axis rigidity for deep-pocket and large-plate milling.",
         best_practices="Use the full machine mass for large-diameter face mills; engage multiple teeth simultaneously to average cutting forces and suppress chatter."
     ),
@@ -2301,6 +2331,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=1.02,
         vibration_risk="Moderate (Long Travel Flexure)",
         spindle_power_rating="20 - 45 kW",
+        max_vc_m_per_min=250.0,
+        max_feed_mm=0.9,
+        max_ap_mm=15.0,
         description="Overhead bridge gantry spanning large aerospace molds, hydro turbine blades, or energy components up to 10+ meters in length.",
         best_practices="Long travels amplify vibration: prefer high-feed inserts with light ae passes over single heavy cuts; verify workpiece support to avoid tramp metal flexure."
     ),
@@ -2310,6 +2343,9 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=0.88,
         vibration_risk="Moderate to High",
         spindle_power_rating="5 - 11 kW",
+        max_vc_m_per_min=150.0,
+        max_feed_mm=0.7,
+        max_ap_mm=6.0,
         description="Knee-and-column mill with digital readout and manually swiveling head for angled features. Common in toolrooms and repair shops.",
         best_practices="Lock unused axis slides before cutting; take multiple lighter passes rather than one heavy cut, and use shorter gauge-length end mills to reduce tool overhang."
     ),
@@ -2319,8 +2355,23 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         rigidity_factor=0.70,
         vibration_risk="High (Light Frame & Runout)",
         spindle_power_rating="0.5 - 2.2 kW",
+        max_vc_m_per_min=100.0,
+        max_feed_mm=0.4,
+        max_ap_mm=2.0,
         description="Small polymer or aluminum-frame CNC router/mill with high-RPM trim-router style spindles for PCB, wax, wood, and soft-metal prototyping.",
         best_practices="Restrict to small diameter tools (<= 6 mm), high spindle speeds with adaptive clearing toolpaths, and low radial engagement (ae <= 30% D) to protect the lightweight frame."
+    ),
+    "Unspecified Machine (Neutral Rigidity 1.0x)": MachineCharacteristics(
+        category="Unspecified / Generic",
+        family="universal",
+        rigidity_factor=1.0,
+        vibration_risk="Unknown (Not Modeled)",
+        spindle_power_rating="Unspecified",
+        max_vc_m_per_min=350.0,
+        max_feed_mm=1.2,
+        max_ap_mm=10.0,
+        description="Neutral placeholder when no machine is selected: applies exactly 1.0x rigidity so the prediction reflects pure material-tool physics without any machine-specific chatter adjustment.",
+        best_practices="Select a specific machine tool for chatter-aware rigidity adjustments. With no machine selected, keep conservative engagement and verify stability on the actual equipment."
     ),
 }
 
@@ -2370,6 +2421,12 @@ COOLANT_DATABASE: Dict[str, CoolantCharacteristics] = {
         life_multiplier=1.45,
         description="Sub-zero fluid injection directly onto cutting edge; freezes shear zone, radically lowers chemical diffusion wear.",
         recommended_materials="Ti-6Al-4V, Inconel 718, Additive Superalloys."
+    ),
+    "No Selection (Neutral 1.0x)": CoolantCharacteristics(
+        name="No Selection (Neutral)",
+        life_multiplier=1.0,
+        description="No cooling/lubrication method selected — neutral 1.0x multiplier, no coolant effects modeled. Distinct from 'No Coolant (Bare Dry Cut)', which models an actual dry-cutting condition with accelerated thermal wear.",
+        recommended_materials="Any — no coolant-specific guidance applied."
     ),
 }
 
@@ -2421,6 +2478,61 @@ OPERATION_DATABASE: Dict[str, OperationDefinition] = {
         feed_unit="mm/rev",
         description="Multiple low-depth radial passes with full-profile engagement; severe notching and repeated thermal cycling of the flank.",
         best_practices="Use the radial infeed (plunge) method with 0.1-0.2 mm depth-of-cut per pass and a 29-30° infeed angle to split chip flow over both flanks."
+    ),
+    "Taper / Contour Turning": OperationDefinition(
+        key="Taper Turning",
+        name="Taper / Contour Turning (2-Axis Interpolation)",
+        family="turning",
+        life_multiplier=0.92,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Simultaneous X-Z interpolation producing conical tapers, arcs, and free-form contours; continuously varying engagement angle keeps chip load near-continuous.",
+        best_practices="Program constant surface speed with a feed override tapering to ~70% near the smallest interpolated diameter; use ISO C/D chipbreakers to avoid bird-nesting on long chips."
+    ),
+    "Parting / Cut-Off (Narrow Blade)": OperationDefinition(
+        key="Parting",
+        name="Parting / Cut-Off (Narrow Grooving Blade)",
+        family="turning",
+        life_multiplier=0.68,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Severely interrupted radial cut to the centerline with a slender blade; maximum tool deflection, chip-packing and exit burr risk of any lathe operation.",
+        best_practices="Reduce feed ~40% within 2 mm of the centerline where surface speed collapses; use blades with 5° rake and reinforced T-lands; never let the blade dwell at bottom of cut."
+    ),
+    "Grooving (OD/ID Seal Grooves)": OperationDefinition(
+        key="Grooving",
+        name="Grooving (OD/ID Seal & Retaining Grooves)",
+        family="turning",
+        life_multiplier=0.78,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Radial plunge forming narrow grooves; high radial pressure and chip confinement between groove walls cause edge build-up and corner chipping.",
+        best_practices="Plunge at 60-70% of turning feed then traverse at full feed; direct high-pressure coolant into the groove space to flush packed chips before they weld to the edge."
+    ),
+    "Hard Turning (Hardened Steel 45-65 HRC)": OperationDefinition(
+        key="Hard Turning",
+        name="Hard Turning (Hardened Steel 45-65 HRC)",
+        family="turning",
+        life_multiplier=0.60,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Finish machining of hardened bearing / die steel with PCBN or fine-grain ceramic; extreme flank pressure, white-layer formation risk, and abrasive carbide phases dominate wear.",
+        best_practices="Use PCBN with honed (0.05-0.10 mm x 20°) chamfer edges, rigid setup with L/D < 3, and continuous CSS; avoid interrupted cuts which fracture PCBN edges instantly."
+    ),
+    "Form / Profile Turning (Copy Turning)": OperationDefinition(
+        key="Form Turning",
+        name="Form / Profile Turning (Copy Turning)",
+        family="turning",
+        life_multiplier=0.82,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="A single full-profile insert reproduces a complex contour in one plunge; varying engagement width causes non-uniform flank loading and profile-edge notching.",
+        best_practices="Keep the profile contact arc below 180° to avoid simultaneous multi-point rubbing; apply CVD-coated carbide for steel and verify profile wear against a master template each shift."
     ),
     "Face Milling (Indexable 45°)": OperationDefinition(
         key="Face Milling",
@@ -2488,6 +2600,72 @@ OPERATION_DATABASE: Dict[str, OperationDefinition] = {
         description="Scallop-controlled 3D finishing where the tool contact point migrates toward the near-zero-speed tip.",
         best_practices="Tilt the tool 10-15° (lead/lean angle) so contact stays off the zero-speed tip; use smaller stepovers (5-10% D) to control scallop height and flank wear."
     ),
+    "Pocket Milling (Closed Contour)": OperationDefinition(
+        key="Pocket Milling",
+        name="Pocket Milling (Closed Contour / Island Clearing)",
+        family="milling",
+        life_multiplier=0.82,
+        mrr_model="milling",
+        ae_fraction_of_d=0.25,
+        feed_unit="mm/tooth",
+        description="Roughing and finishing of enclosed cavities with repeated corner entries/exits, internal radii stress, and chip recirculation in deep pockets.",
+        best_practices="Rough with adaptive/trochoidal internal corners at 50-70% of straight-wall feed; leave 0.3-0.5 mm stock for a finishing spiral pass at full engagement consistency."
+    ),
+    "Plunge / Ramp Milling": OperationDefinition(
+        key="Plunge Milling",
+        name="Plunge / Ramp Milling (Z-Axis Feed)",
+        family="milling",
+        life_multiplier=0.75,
+        mrr_model="milling",
+        ae_fraction_of_d=0.15,
+        feed_unit="mm/tooth",
+        description="Axial feeding of a center-cutting or dedicated plunge tool into the workpiece; concentrated compressive load on the chisel-like center cutting edge.",
+        best_practices="Limit plunge depth per pass to 0.5-1.0x tool diameter; use drills/plunge cutters with reinforced center webs and withdraw to clear chips every 1-2 diameters."
+    ),
+    "High-Feed Milling (HFM)": OperationDefinition(
+        key="High-Feed Milling",
+        name="High-Feed Milling (HFM, Small ap / Very High fz)",
+        family="milling",
+        life_multiplier=1.05,
+        mrr_model="milling",
+        ae_fraction_of_d=0.10,
+        feed_unit="mm/tooth",
+        description="Very shallow axial depth (0.5-2 mm) with extreme feed per tooth (0.8-2.5 mm/z) using round/insert cutters; chip-thinning geometry keeps cutting forces axial and moderate.",
+        best_practices="Keep ap below the insert corner radius tangent point; use the cutter manufacturer's feed/engagement diagram — HFM gains evaporate if ae exceeds 25% of diameter."
+    ),
+    "Thread Milling": OperationDefinition(
+        key="Thread Milling",
+        name="Thread Milling (Helical Interpolation)",
+        family="milling",
+        life_multiplier=0.85,
+        mrr_model="milling",
+        ae_fraction_of_d=0.20,
+        feed_unit="mm/tooth",
+        description="Helical interpolation of a partial-profile cutter to cut internal/external threads; one tool covers many pitches but each pass is an interrupted arc cut.",
+        best_practices="Use climb milling from the top of the hole and a 90° entry arc; scale feed by (cutter diameter / thread diameter) to hold true per-tooth chip thickness."
+    ),
+    "Corner / Rest-Material Milling": OperationDefinition(
+        key="Corner Milling",
+        name="Corner / Rest-Material Milling (Pencil Tracing)",
+        family="milling",
+        life_multiplier=0.72,
+        mrr_model="milling",
+        ae_fraction_of_d=0.15,
+        feed_unit="mm/tooth",
+        description="Re-machining of uncut fillet material left by larger tools; high radial engagement on a small-diameter tool with poor core rigidity.",
+        best_practices="Use the largest-radius tool that fits the fillet, reduce feed 30-40% vs. bulk roughing, and take the pass immediately after roughing while the stock is still hot and soft."
+    ),
+    "Chamfering / Deburring (Light Pass)": OperationDefinition(
+        key="Chamfering",
+        name="Chamfering / Deburring (Light Edge Pass)",
+        family="milling",
+        life_multiplier=0.95,
+        mrr_model="milling",
+        ae_fraction_of_d=0.30,
+        feed_unit="mm/tooth",
+        description="Low-axial-depth edge-breaking pass with minimal chip load; wear is dominated by rubbing and edge micro-chipping rather than thermal load.",
+        best_practices="Run 10-15% above the roughing speed to force shearing over rubbing; dedicated chamfer mills with 2-3 flutes avoid the zero-speed tip problem of spot drills."
+    ),
     "Drilling / Twist Drilling": OperationDefinition(
         key="Drilling",
         name="Drilling (Twist Drill / Indexable Insert)",
@@ -2498,6 +2676,61 @@ OPERATION_DATABASE: Dict[str, OperationDefinition] = {
         feed_unit="mm/rev",
         description="Two-edge internal hole-making with chips trapped in a confined fluted channel; extreme heat concentration at the chisel edge.",
         best_practices="Peck-drill beyond 3x diameter; use internal coolant-through drills to blast chips out of the hole and cool the margin; reduce feed 50% on breakthrough."
+    ),
+    "Peck / Deep-Hole Drilling": OperationDefinition(
+        key="Peck Drilling",
+        name="Peck / Deep-Hole Drilling (Gun Drill, L/D > 5)",
+        family="drilling",
+        life_multiplier=0.68,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Intermittent retract cycles (or single-pass gun drilling) for deep holes; chip evacuation failures and margin rubbing in the hole wall dominate wear.",
+        best_practices="Full retract every 1-2 diameters for twist drills; for gun drills hold L/D straightness and feed high-pressure oil (100+ bar) through the drill shank."
+    ),
+    "Reaming (Precision Hole Finishing)": OperationDefinition(
+        key="Reaming",
+        name="Reaming (Precision Hole Finishing, H7-H8)",
+        family="drilling",
+        life_multiplier=0.90,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Multi-edge sizing tool removing 0.2-0.5 mm stock to final tolerance; wear directly transfers to hole diameter and surface finish.",
+        best_practices="Leave 2-4% of hole diameter as reaming stock; run at 60-70% of drilling speed and 2-3x drilling feed; always ream through-holes beyond the exit face."
+    ),
+    "Tapping (Internal Thread Cutting)": OperationDefinition(
+        key="Tapping",
+        name="Tapping (Internal Threads, Form or Cut)",
+        family="drilling",
+        life_multiplier=0.62,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Thread-forming flute geometry cutting at the exact pitch feed; synchronized spindle-axis motion — any feed error instantly overloads successive teeth.",
+        best_practices="Use rigid/precision holders with axial float compensation; for form taps apply chlorinated tapping paste and verify lubrication before every hole in steels above 800 MPa."
+    ),
+    "Countersinking / Counterboring": OperationDefinition(
+        key="Countersinking",
+        name="Countersinking / Counterboring (Spotfacing)",
+        family="drilling",
+        life_multiplier=0.85,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Conical or flat-bottom enlargement of hole entrances; interrupted entry with a wide peripheral edge and poor chip clearance at the pilot.",
+        best_practices="Reduce feed ~50% on entry until the full cone engages; use multi-flute (3-5) countersinks for steels and piloted counterbores for perpendicularity."
+    ),
+    "Center / Spot Drilling": OperationDefinition(
+        key="Center Drilling",
+        name="Center / Spot Drilling (Chamfered Pilot)",
+        family="drilling",
+        life_multiplier=0.95,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Short, rigid combined drill-and-chamfer producing center holes for tailstock support; very low cutting time per hole and minimal thermal load.",
+        best_practices="Use combined 60°/120° center drills rigidly held; spot-drill depth should never exceed the drill point angle cone to avoid bell-mouthing."
     ),
     "Boring / Fine Boring": OperationDefinition(
         key="Boring",

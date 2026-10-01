@@ -134,6 +134,13 @@ def optimize_tool_wear(
     machine = MACHINE_DATABASE[machine_name]
     coolant = COOLANT_DATABASE[coolant_name]
 
+    # Floor tiny/zero inputs exactly like calculate_tool_life does, so the
+    # strategies stay finite when a slider sits at 0 (a 0 feed would otherwise
+    # divide at the MRR-compensation step below).
+    current_vc = max(1.0, float(current_vc))
+    current_feed = max(0.001, float(current_feed))
+    current_ap = max(0.05, float(current_ap))
+
     # Current baseline
     base_life = calculate_tool_life(
         pairing, machine, coolant, current_vc, current_feed, current_ap, is_roughing,

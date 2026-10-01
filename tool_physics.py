@@ -111,6 +111,22 @@ def evaluate_confidence(
     return score, label, notes
 
 
+def effective_coolant_factor(
+    pairing: MaterialToolPairing, coolant: CoolantCharacteristics
+) -> float:
+    """
+    Coolant life multiplier after material-specific synergy adjustments.
+    Ceramics excel in continuous high-heat dry cutting (1.15x), while flood
+    coolant on ceramics induces cyclical thermal shock and comb micro-cracking (0.65x).
+    """
+    if "Ceramic" in pairing.tool_material:
+        if "Dry" in coolant.name:
+            return 1.15
+        if "Flood" in coolant.name:
+            return 0.65
+    return coolant.life_multiplier
+
+
 def calculate_tool_life(
     pairing: MaterialToolPairing,
     machine: MachineCharacteristics,
@@ -144,15 +160,8 @@ def calculate_tool_life(
 
     t_nominal = ratio ** (1.0 / pairing.taylor_n)
 
-    # Coolant synergy adjustments:
-    # If using ceramic tools, dry air blast is often superior to flood coolant
-    # because flood causes cyclical thermal shock and comb micro-cracking.
-    coolant_factor = coolant.life_multiplier
-    if "Ceramic" in pairing.tool_material:
-        if "Dry" in coolant.name:
-            coolant_factor = 1.15  # Ceramics excel in continuous high heat dry
-        elif "Flood" in coolant.name:
-            coolant_factor = 0.65  # Flood induces catastrophic thermal shock
+    # Coolant synergy adjustments (ceramic dry/flood specials):
+    coolant_factor = effective_coolant_factor(pairing, coolant)
 
     # Roughing factor: Roughing allows higher acceptable VB limit (0.5-0.6mm vs 0.3mm),
     # which extends allowable cut duration by ~30-40% before reaching failure limit.

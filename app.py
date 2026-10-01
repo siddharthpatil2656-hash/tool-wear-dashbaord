@@ -29,6 +29,7 @@ from tool_physics import (
     compute_flank_wear_curve,
     calculate_tool_life,
     calculate_mrr,
+    effective_coolant_factor,
 )
 from optimizer import optimize_tool_wear
 from presets import INDUSTRY_PRESETS
@@ -149,10 +150,28 @@ def _init(key, **defaults):
 
 def _sync_dependent_widgets():
     """After a machine change, keep operation/holder selections that are still
-    valid for the new family and re-point invalid ones to that family's default."""
+    valid for the new family and re-point invalid ones to that family's default.
+    Also clamps the cutting-parameter sliders into the new machine's envelope."""
     name = st.session_state.get("machine_choice", NO_SELECTION)
     mkey = NEUTRAL_MACHINE_KEY if name == NO_SELECTION else name
-    fam = MACHINE_DATABASE[mkey].family
+    machine = MACHINE_DATABASE[mkey]
+    fam = machine.family
+    # Streamlit resets a keyed slider whenever min/max/step change (documented
+    # behavior), so a machine switch would zero the cutting parameters. Stash
+    # the current values clamped into the new envelope and drop the keys; the
+    # cutting-parameter section re-seeds the sliders from the stash on the
+    # very next render, preserving the user's values across the switch.
+    _stash = {}
+    for _k, _cap in (
+        ("vc_input", machine.max_vc_m_per_min),
+        ("feed_input", machine.max_feed_mm),
+        ("ap_input", machine.max_ap_mm),
+    ):
+        if _k in st.session_state:
+            _stash[_k] = min(float(st.session_state[_k]), _cap)
+            del st.session_state[_k]
+    if _stash:
+        st.session_state["_param_stash"] = _stash
     if fam == "milling":
         allowed = {"milling", "drilling", "boring"}
     elif fam == "turning":
@@ -379,6 +398,10 @@ with st.sidebar:
     machine_info = MACHINE_DATABASE[selected_machine]
     m_family = machine_info.family
 
+    # Consume the parameter stash written by _sync_dependent_widgets on a
+    # machine switch (slider keys were deleted there and are re-seeded below).
+    _param_stash = st.session_state.pop("_param_stash", None)
+
     # Operations are filtered by the selected machine's family
     if m_family == "milling":
         allowed_op_families = {"milling", "drilling", "boring"}
@@ -492,6 +515,91 @@ with st.sidebar:
     if "No Coolant" in selected_coolant:
         st.warning("⚠️ **Bare Dry Cut selected**: tool life reduced ~38%. Suitable for cast iron, ceramic tooling, or light finishing passes only.")
 
+        # Live dry-cut impact assessment at the current cutting parameters
+        # (sliders/flags live in session state; read directly so this section
+        # re-assesses on every dashboard change even though it renders earlier).
+        def _live_param(key, fallback):
+            if _param_stash and key in _param_stash:
+                return float(_param_stash[key])
+            return float(st.session_state.get(key, fallback))
+
+        _vc_now = _live_param("vc_input", default_vc)
+        _feed_now = _live_param("feed_input", default_feed)
+        _ap_now = _live_param("ap_input", default_ap)
+        _rough_now = bool(st.session_state.get("roughing_flag", default_roughing))
+        _dry_cool = COOLANT_DATABASE[selected_coolant]
+        _flood_cool = COOLANT_DATABASE["Standard Flood Emulsion (7-10% oil)"]
+        _common = dict(
+            is_roughing=_rough_now,
+            operation_name=selected_operation,
+            milling_tooling_name=selected_milling_tooling,
+            holder_name=selected_holder,
+            overhang_ratio=overhang_input,
+        )
+        _dry_life = calculate_tool_life(
+            pairing_info, machine_info, _dry_cool, _vc_now, _feed_now, _ap_now, **_common
+        )
+        _flood_life = calculate_tool_life(
+            pairing_info, machine_info, _flood_cool, _vc_now, _feed_now, _ap_now, **_common
+        )
+        _dry_eff = effective_coolant_factor(pairing_info, _dry_cool)
+        _flood_eff = effective_coolant_factor(pairing_info, _flood_cool)
+
+        if _dry_life >= _flood_life:
+            st.success(
+                f"✅ **Dry cutting is optimal for {pairing_info.tool_material}**: "
+                f"{_dry_life:.1f} min dry vs {_flood_life:.1f} min with flood "
+                f"(+{((_dry_life - _flood_life) / max(_flood_life, 1e-9)) * 100:.0f}%). "
+                "Flood coolant would thermally shock this tool material — keep it dry."
+            )
+        else:
+            _loss = _flood_life - _dry_life
+            _pct = (_loss / _flood_life) * 100.0
+            st.error(
+                f"📉 **Real tool-life impact at current parameters**: "
+                f"**{_dry_life:.1f} min dry** vs **{_flood_life:.1f} min with flood** "
+                f"→ **−{_loss:.1f} min (−{_pct:.0f}%)**"
+            )
+
+            # Alternative-coolant recovery table at the exact same parameters
+            _rows = []
+            for _cname, _cinfo in COOLANT_DATABASE.items():
+                if "No Selection" in _cname or "No Coolant" in _cname:
+                    continue
+                _life = calculate_tool_life(
+                    pairing_info, machine_info, _cinfo, _vc_now, _feed_now, _ap_now, **_common
+                )
+                _rows.append((_cinfo.name, _life, effective_coolant_factor(pairing_info, _cinfo)))
+            _rows.sort(key=lambda r: r[1], reverse=True)
+            _tbl = "\n".join(
+                f"| {'**' if n == _rows[0][0] else ''}{n}{'**' if n == _rows[0][0] else ''} "
+                f"| {l:.1f} min | {((l - _dry_life) / max(_dry_life, 1e-9)) * 100:+.0f}% |"
+                for n, l, _f in _rows
+            )
+            st.markdown(
+                "**Recovery — same cut under each coolant:**\n\n"
+                "| Coolant | Tool Life | vs Dry |\n|---|---|---|\n" + _tbl
+            )
+
+            # Dry-optimized parameter suggestions
+            _n = float(pairing_info.taylor_n)
+            _vc_comp = _vc_now * (_dry_eff / _flood_eff) ** _n
+            _life_comp = calculate_tool_life(
+                pairing_info, machine_info, _dry_cool, _vc_comp, _feed_now, _ap_now, **_common
+            )
+            _best_name, _best_life, _best_eff = _rows[0]
+            st.markdown(
+                "**Dry-cut optimization options:**\n"
+                f"1. 🎛️ **Speed compensation** — drop Vc to **{_vc_comp:.0f} m/min** "
+                f"({_dry_eff / _flood_eff:+.0%} factor → matches flood life ≈ {_life_comp:.1f} min, MRR −{100 * (1 - _vc_comp / _vc_now):.0f}%).\n"
+                f"2. 💧 **Best coolant switch** — {_best_name} restores ≈ **{_best_life:.1f} min** "
+                f"({_best_eff / _dry_eff - 1:+.0%} vs dry) with zero parameter change.\n"
+                f"3. 🧱 **Ceramic tooling** — Si₃N₄/Al₂O₃ thrives dry (+15% vs dry carbide baseline, "
+                "flood would crack it); see Tool Material selector.\n"
+                f"4. 📐 **Lighter engagement** — reduce ap/feed and use the wear-minimization "
+                "strategies in the '🎯 How to Minimize Tool Wear' tab."
+            )
+
     is_roughing = st.checkbox(
         "Heavy Roughing Cut (VB limit = 0.5-0.6 mm)",
         key="roughing_flag",
@@ -502,39 +610,50 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 3. Cutting Parameters")
 
-    # Dynamic bounds based on Springer empirical data
+    # Slider ceilings follow the selected machine's capability envelope
+    # (min is 0 for all three; physics engine floors tiny inputs internally).
     v_rec_min = float(pairing_info.v_min)
     v_rec_max = float(pairing_info.v_max)
+    vc_cap = float(machine_info.max_vc_m_per_min)
+    feed_cap = float(machine_info.max_feed_mm)
+    ap_cap = float(machine_info.max_ap_mm)
+
+    # Seed from the machine-switch stash when present (values already clamped
+    # to this machine's envelope by _sync_dependent_widgets); otherwise use
+    # the pairing/preset-driven defaults.
+    _seed_vc = float(_param_stash["vc_input"]) if (_param_stash and "vc_input" in _param_stash) else float(min(max(default_vc, v_rec_min * 0.5), vc_cap))
+    _seed_feed = float(_param_stash["feed_input"]) if (_param_stash and "feed_input" in _param_stash) else float(min(max(default_feed, pairing_info.f_min * 0.6), feed_cap))
+    _seed_ap = float(_param_stash["ap_input"]) if (_param_stash and "ap_input" in _param_stash) else float(min(max(default_ap, pairing_info.ap_min * 0.6), ap_cap))
 
     vc_input = st.slider(
         "Cutting Speed (Vc, m/min):",
-        min_value=max(5.0, float(v_rec_min * 0.4)),
-        max_value=float(v_rec_max * 1.8),
+        min_value=0.0,
+        max_value=vc_cap,
         step=1.0,
         key="vc_input",
-        help=f"Empirical research range: {v_rec_min:.0f} – {v_rec_max:.0f} m/min",
-        **_init("vc_input", value=float(min(max(default_vc, v_rec_min * 0.5), v_rec_max * 1.7))),
+        help=f"Machine envelope: 0 – {vc_cap:.0f} m/min (this machine) | Springer empirical range: {v_rec_min:.0f} – {v_rec_max:.0f} m/min",
+        **_init("vc_input", value=_seed_vc),
     )
 
     feed_input = st.slider(
         f"Feed Rate (f, {op_info.feed_unit}):",
-        min_value=max(0.01, float(pairing_info.f_min * 0.5)),
-        max_value=float(pairing_info.f_max * 1.8),
+        min_value=0.0,
+        max_value=feed_cap,
         step=0.01,
         format="%.3f",
         key="feed_input",
-        help=f"Empirical research range: {pairing_info.f_min:.3f} – {pairing_info.f_max:.3f} {op_info.feed_unit}",
-        **_init("feed_input", value=float(min(max(default_feed, pairing_info.f_min * 0.6), pairing_info.f_max * 1.6))),
+        help=f"Machine envelope: 0 – {feed_cap:.3f} {op_info.feed_unit} (this machine) | Springer empirical range: {pairing_info.f_min:.3f} – {pairing_info.f_max:.3f} {op_info.feed_unit}",
+        **_init("feed_input", value=_seed_feed),
     )
 
     ap_input = st.slider(
         "Depth of Cut (ap, mm):",
-        min_value=max(0.1, float(pairing_info.ap_min * 0.5)),
-        max_value=float(pairing_info.ap_max * 1.8),
+        min_value=0.0,
+        max_value=ap_cap,
         step=0.1,
         key="ap_input",
-        help=f"Empirical research range: {pairing_info.ap_min:.1f} – {pairing_info.ap_max:.1f} mm",
-        **_init("ap_input", value=float(min(max(default_ap, pairing_info.ap_min * 0.6), pairing_info.ap_max * 1.6))),
+        help=f"Machine envelope: 0 – {ap_cap:.1f} mm (this machine) | Springer empirical range: {pairing_info.ap_min:.1f} – {pairing_info.ap_max:.1f} mm",
+        **_init("ap_input", value=_seed_ap),
     )
 
     st.markdown("---")
