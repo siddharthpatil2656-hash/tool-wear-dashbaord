@@ -10,6 +10,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
+from types import SimpleNamespace
 
 from springer_database import (
     SPRINGER_DATABASE,
@@ -31,6 +32,13 @@ from tool_physics import (
 )
 from optimizer import optimize_tool_wear
 from presets import INDUSTRY_PRESETS
+
+
+# "-- No Selection --" means that field was left empty: modifiers fall back to
+# neutral physics (1.0x / None), while mandatory material inputs prompt the user.
+NO_SELECTION = "-- No Selection --"
+NEUTRAL_MACHINE_KEY = "Unspecified Machine (Neutral Rigidity 1.0x)"
+NEUTRAL_COOLANT_KEY = "No Selection (Neutral 1.0x)"
 
 
 # Page configuration
@@ -130,6 +138,72 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+CUSTOM_PARAMS = "-- Custom User Parameters --"
+
+
+def _init(key, **defaults):
+    """Pass widget defaults only on the first render, so preset-driven session
+    state never collides with a declared default (avoids Streamlit warnings)."""
+    return {} if key in st.session_state else defaults
+
+
+def _sync_dependent_widgets():
+    """After a machine change, keep operation/holder selections that are still
+    valid for the new family and re-point invalid ones to that family's default."""
+    name = st.session_state.get("machine_choice", NO_SELECTION)
+    mkey = NEUTRAL_MACHINE_KEY if name == NO_SELECTION else name
+    fam = MACHINE_DATABASE[mkey].family
+    if fam == "milling":
+        allowed = {"milling", "drilling", "boring"}
+    elif fam == "turning":
+        allowed = {"turning", "drilling"}
+    else:
+        allowed = {"milling", "turning", "drilling", "boring"}
+    op_list = [k for k, v in OPERATION_DATABASE.items() if v.family in allowed]
+    op_default = "End Milling / Shoulder Milling"
+    if st.session_state.get("operation_choice") not in ([NO_SELECTION] + op_list):
+        st.session_state["operation_choice"] = op_default if op_default in op_list else op_list[0]
+    if fam == "milling":
+        holder_keys = [k for k, h in TOOL_HOLDER_DATABASE.items() if h.applicable_family in ("milling", "both")]
+        holder_default = "Shrink-Fit Holder (HSK, Balanced G2.5)"
+    elif fam == "turning":
+        holder_keys = [k for k, h in TOOL_HOLDER_DATABASE.items() if h.applicable_family in ("turning", "both")]
+        holder_default = "Standard ISO Turning Tool Holder (Rigid Clamp)"
+    else:
+        holder_keys = list(TOOL_HOLDER_DATABASE.keys())
+        holder_default = "Standard ER Collet Chuck"
+    if st.session_state.get("holder_choice") not in ([NO_SELECTION] + holder_keys):
+        st.session_state["holder_choice"] = holder_default
+
+
+def _apply_industry_preset():
+    """Push preset values into the keyed sidebar widgets; runs before the rerun."""
+    name = st.session_state.get("preset_choice", CUSTOM_PARAMS)
+    if name == CUSTOM_PARAMS:
+        return
+    p = INDUSTRY_PRESETS[name]
+    st.session_state["material_mode"] = "📖 Curated Springer IJAMT Research Pairings"
+    st.session_state["pairing_choice"] = p.pairing_key
+    st.session_state["machine_choice"] = p.machine_name
+    st.session_state["coolant_choice"] = p.coolant_name
+    if p.operation_name:
+        st.session_state["operation_choice"] = p.operation_name
+    if p.milling_tooling_name:
+        st.session_state["tooling_choice"] = p.milling_tooling_name
+    pairing = SPRINGER_DATABASE.get(p.pairing_key)
+    if pairing is not None:
+        st.session_state["vc_input"] = min(max(float(p.vc), pairing.v_min * 0.5), pairing.v_max * 1.7)
+        st.session_state["feed_input"] = min(max(float(p.feed), pairing.f_min * 0.6), pairing.f_max * 1.6)
+        st.session_state["ap_input"] = min(max(float(p.ap), pairing.ap_min * 0.6), pairing.ap_max * 1.6)
+    else:
+        st.session_state["vc_input"] = float(p.vc)
+        st.session_state["feed_input"] = float(p.feed)
+        st.session_state["ap_input"] = float(p.ap)
+    st.session_state["time_input"] = float(p.current_time_min)
+    st.session_state["roughing_flag"] = bool(p.is_roughing)
+    _sync_dependent_widgets()
+
+
 # Sidebar: Presets and User Inputs
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/cnc-machine.png", width=64)
@@ -137,8 +211,8 @@ with st.sidebar:
 
     # 1-Click Industry Presets
     st.markdown("### ⚡ Quick-Load Presets")
-    preset_keys = ["-- Custom User Parameters --"] + list(INDUSTRY_PRESETS.keys())
-    selected_preset = st.selectbox("Load Industry Case Study:", preset_keys)
+    preset_keys = [CUSTOM_PARAMS] + list(INDUSTRY_PRESETS.keys())
+    selected_preset = st.selectbox("Load Industry Case Study:", preset_keys, key="preset_choice", on_change=_apply_industry_preset)
 
     # Defaults
     if selected_preset != "-- Custom User Parameters --":
@@ -176,16 +250,20 @@ with st.sidebar:
             "🔧 Independent Custom Selection (Tool & Workpiece Separately)",
             "📖 Curated Springer IJAMT Research Pairings"
         ],
-        index=0 if selected_preset == "-- Custom User Parameters --" else 1,
-        help="Choose whether to select workpiece and tool independently or use curated research literature pairings."
+        key="material_mode",
+        help="Choose whether to select workpiece and tool independently or use curated research literature pairings.",
+        **_init("material_mode", index=0 if selected_preset == CUSTOM_PARAMS else 1),
     )
 
     custom_warnings = []
 
     if "Independent" in material_mode:
         st.markdown("#### Workpiece Material")
-        wp_keys = list(WORKPIECE_DATABASE.keys())
-        selected_wp_key = st.selectbox("Select Workpiece Material:", wp_keys, index=0)
+        wp_keys = [NO_SELECTION] + list(WORKPIECE_DATABASE.keys())
+        selected_wp_key = st.selectbox("Select Workpiece Material:", wp_keys, index=1, key="wp_choice")
+        if selected_wp_key == NO_SELECTION:
+            st.warning("⚠️ No selection has been made for the workpiece material — please select a material to generate predictions.")
+            st.stop()
         wp_info = WORKPIECE_DATABASE[selected_wp_key]
 
         st.markdown(
@@ -196,8 +274,11 @@ with st.sidebar:
         st.caption(f"🔥 **Thermal Conduct.** {wp_info.thermal_conductivity}")
 
         st.markdown("#### Tool Material & Coating")
-        tool_keys = list(TOOL_DATABASE.keys())
-        selected_tool_key = st.selectbox("Select Tool Material (Substrate):", tool_keys, index=0)
+        tool_keys = [NO_SELECTION] + list(TOOL_DATABASE.keys())
+        selected_tool_key = st.selectbox("Select Tool Material (Substrate):", tool_keys, index=1, key="tool_choice")
+        if selected_tool_key == NO_SELECTION:
+            st.warning("⚠️ No selection has been made for the tool material — please select a substrate to generate predictions.")
+            st.stop()
         tool_info = TOOL_DATABASE[selected_tool_key]
 
         st.markdown(
@@ -207,8 +288,11 @@ with st.sidebar:
             unsafe_allow_html=True
         )
 
-        coating_keys = list(COATING_DATABASE.keys())
-        selected_coating_key = st.selectbox("Select Tool Coating / Prep:", coating_keys, index=0)
+        coating_keys = [NO_SELECTION] + list(COATING_DATABASE.keys())
+        selected_coating_key = st.selectbox("Select Tool Coating / Prep:", coating_keys, index=1, key="coating_choice")
+        if selected_coating_key == NO_SELECTION:
+            st.warning("⚠️ No selection has been made for the tool coating — please select a coating/preparation to generate predictions.")
+            st.stop()
         coating_info = COATING_DATABASE[selected_coating_key]
         st.caption(f"🛡️ **Process**: {coating_info.process} | Life Multiplier: {coating_info.life_multiplier:.2f}x")
 
@@ -223,34 +307,46 @@ with st.sidebar:
             st.warning(warn)
 
         # Optional Advanced Taylor Constant Customizer
+        # Keys include the material identity so switching workpiece/tool/coating
+        # re-seeds the inputs from the newly synthesized pairing instead of
+        # keeping stale overrides.
+        _taylor_key = f"{selected_wp_key} | {selected_tool_key} | {selected_coating_key}"
         with st.expander("⚙️ Fine-Tune Taylor Constants (Expert Overrides)", expanded=False):
             override_c = st.number_input(
                 "Taylor Constant (C):",
                 min_value=1.0,
                 max_value=25000.0,
-                value=float(pairing_info.taylor_C),
-                step=5.0
+                step=5.0,
+                key=f"taylor_c_{_taylor_key}",
+                **_init(f"taylor_c_{_taylor_key}", value=float(pairing_info.taylor_C)),
             )
             override_n = st.number_input(
                 "Taylor Exponent (n):",
                 min_value=0.05,
                 max_value=0.90,
-                value=float(pairing_info.taylor_n),
                 step=0.01,
-                format="%.3f"
+                format="%.3f",
+                key=f"taylor_n_{_taylor_key}",
+                **_init(f"taylor_n_{_taylor_key}", value=float(pairing_info.taylor_n)),
             )
             pairing_info.taylor_C = override_c
             pairing_info.taylor_n = override_n
 
     else:
         pairing_list = list(SPRINGER_DATABASE.keys())
-        pairing_index = pairing_list.index(default_pairing) if default_pairing in pairing_list else 0
-        selected_pairing = st.selectbox(
+        pairing_display = [NO_SELECTION] + pairing_list
+        pairing_index = (pairing_list.index(default_pairing) + 1) if default_pairing in pairing_list else 1
+        pairing_choice = st.selectbox(
             "Curated Workpiece & Tool Combination:",
-            pairing_list,
-            index=pairing_index,
-            help="Calibrated empirical pairings from peer-reviewed Springer IJAMT research studies."
+            pairing_display,
+            key="pairing_choice",
+            help="Calibrated empirical pairings from peer-reviewed Springer IJAMT research studies.",
+            **_init("pairing_choice", index=pairing_index),
         )
+        if pairing_choice == NO_SELECTION:
+            st.warning("⚠️ No selection has been made for the material pairing — please choose a curated pairing to generate predictions.")
+            st.stop()
+        selected_pairing = pairing_choice
         pairing_info = SPRINGER_DATABASE[selected_pairing]
 
         # Display material badges
@@ -265,13 +361,21 @@ with st.sidebar:
     st.markdown("### 2. Machine Tool & Environment")
 
     machine_list = list(MACHINE_DATABASE.keys())
-    machine_index = machine_list.index(default_machine) if default_machine in machine_list else 0
-    selected_machine = st.selectbox(
+    machine_display = [NO_SELECTION] + machine_list
+    machine_index = (machine_list.index(default_machine) + 1) if default_machine in machine_list else 1
+    machine_choice = st.selectbox(
         "Which Machine is Used for Machining?",
-        machine_list,
-        index=machine_index,
-        help="Machine rigidity directly scales dynamic chatter vibration and tool degradation rate. The machine family (milling / turning / universal) determines which operations, cutters and holders are available."
+        machine_display,
+        key="machine_choice",
+        on_change=_sync_dependent_widgets,
+        help="Machine rigidity directly scales dynamic chatter vibration and tool degradation rate. The machine family (milling / turning / universal) determines which operations, cutters and holders are available.",
+        **_init("machine_choice", index=machine_index),
     )
+    if machine_choice == NO_SELECTION:
+        selected_machine = NEUTRAL_MACHINE_KEY
+        st.caption("⚠️ No machine selected — neutral 1.0x rigidity applied.")
+    else:
+        selected_machine = machine_choice
     machine_info = MACHINE_DATABASE[selected_machine]
     m_family = machine_info.family
 
@@ -283,36 +387,53 @@ with st.sidebar:
     else:  # universal
         allowed_op_families = {"milling", "turning", "drilling", "boring"}
     operation_list = [k for k, v in OPERATION_DATABASE.items() if v.family in allowed_op_families]
-    operation_index = operation_list.index(default_operation) if default_operation in operation_list else 0
-    selected_operation = st.selectbox(
+    operation_display = [NO_SELECTION] + operation_list
+    operation_index = (operation_list.index(default_operation) + 1) if default_operation in operation_list else 1
+    operation_choice = st.selectbox(
         "Machining Operation:",
-        operation_list,
-        index=operation_index,
-        help="Operation type scales tool life (chip thinning, interrupted cuts, thermal cycling) and switches the MRR model."
+        operation_display,
+        key="operation_choice",
+        help="Operation type scales tool life (chip thinning, interrupted cuts, thermal cycling) and switches the MRR model.",
+        **_init("operation_choice", index=operation_index),
     )
-    op_info = OPERATION_DATABASE[selected_operation]
-    st.caption(f"🏭 **{op_info.family.capitalize()}** | Life Factor: {op_info.life_multiplier:.2f}x | {op_info.description}")
+    if operation_choice == NO_SELECTION:
+        selected_operation = None
+        op_info = SimpleNamespace(
+            feed_unit="mm/rev", family="none", life_multiplier=1.0,
+            description="No operation selected — neutral 1.0x life factor, turning-model MRR."
+        )
+        st.caption("⚠️ No operation selected — neutral physics applied (1.0x life, turning-model MRR).")
+    else:
+        selected_operation = operation_choice
+        op_info = OPERATION_DATABASE[selected_operation]
+        st.caption(f"🏭 **{op_info.family.capitalize()}** | Life Factor: {op_info.life_multiplier:.2f}x | {op_info.description}")
 
     # Milling cutter is only accessible on milling machines running milling operations
     selected_milling_tooling = None
     if m_family == "milling" and op_info.family == "milling":
         tooling_list = list(MILLING_TOOLING_DATABASE.keys())
-        tooling_index = tooling_list.index(default_milling_tooling) if default_milling_tooling in tooling_list else 0
-        selected_milling_tooling = st.selectbox(
+        tooling_display = [NO_SELECTION] + tooling_list
+        tooling_index = (tooling_list.index(default_milling_tooling) + 1) if default_milling_tooling in tooling_list else 1
+        tooling_choice = st.selectbox(
             "Milling Cutter / Tooling:",
-            tooling_list,
-            index=tooling_index,
-            help="Cutter geometry (teeth, diameter, edge prep) scales tool life and drives the MRR spindle-speed model."
+            tooling_display,
+            key="tooling_choice",
+            help="Cutter geometry (teeth, diameter, edge prep) scales tool life and drives the MRR spindle-speed model.",
+            **_init("tooling_choice", index=tooling_index),
         )
-        mt_info = MILLING_TOOLING_DATABASE[selected_milling_tooling]
-        st.markdown(
-            f"<span class='springer-badge'>{mt_info.family.replace('_', ' ').title()}</span> "
-            f"<span class='springer-badge'>{mt_info.teeth} Flutes</span> "
-            f"<span class='springer-badge'>Ø {mt_info.diameter_mm:.0f} mm</span> "
-            f"<span class='springer-badge'>Life: {mt_info.life_multiplier:.2f}x</span>",
-            unsafe_allow_html=True
-        )
-        st.caption(f"💡 **Best practice**: {mt_info.best_practices}")
+        if tooling_choice == NO_SELECTION:
+            st.caption("⚠️ No cutter selected — neutral 1.0x tooling factor, default 4-flute Ø12 mm MRR model.")
+        else:
+            selected_milling_tooling = tooling_choice
+            mt_info = MILLING_TOOLING_DATABASE[selected_milling_tooling]
+            st.markdown(
+                f"<span class='springer-badge'>{mt_info.family.replace('_', ' ').title()}</span> "
+                f"<span class='springer-badge'>{mt_info.teeth} Flutes</span> "
+                f"<span class='springer-badge'>Ø {mt_info.diameter_mm:.0f} mm</span> "
+                f"<span class='springer-badge'>Life: {mt_info.life_multiplier:.2f}x</span>",
+                unsafe_allow_html=True
+            )
+            st.caption(f"💡 **Best practice**: {mt_info.best_practices}")
 
     # Tool holder filtered by machine family
     if m_family == "milling":
@@ -324,15 +445,22 @@ with st.sidebar:
     else:
         holder_keys = list(TOOL_HOLDER_DATABASE.keys())
         default_holder = "Standard ER Collet Chuck"
-    holder_index = holder_keys.index(default_holder) if default_holder in holder_keys else 0
-    selected_holder = st.selectbox(
+    holder_display = [NO_SELECTION] + holder_keys
+    holder_index = (holder_keys.index(default_holder) + 1) if default_holder in holder_keys else 1
+    holder_choice = st.selectbox(
         "Tool Holder / Chucking System:",
-        holder_keys,
-        index=holder_index,
-        help="Holder rigidity and runout accuracy scale tool life. Dampened anti-vibration holders halve the overhang penalty."
+        holder_display,
+        key="holder_choice",
+        help="Holder rigidity and runout accuracy scale tool life. Dampened anti-vibration holders halve the overhang penalty.",
+        **_init("holder_choice", index=holder_index),
     )
-    holder_info = TOOL_HOLDER_DATABASE[selected_holder]
-    st.caption(f"🔩 **Runout**: {holder_info.runout_accuracy} | Rigidity Multiplier: {holder_info.rigidity_multiplier:.2f}x")
+    if holder_choice == NO_SELECTION:
+        selected_holder = None
+        st.caption("⚠️ No holder selected — neutral 1.0x holder rigidity.")
+    else:
+        selected_holder = holder_choice
+        holder_info = TOOL_HOLDER_DATABASE[selected_holder]
+        st.caption(f"🔩 **Runout**: {holder_info.runout_accuracy} | Rigidity Multiplier: {holder_info.rigidity_multiplier:.2f}x")
 
     overhang_input = st.slider(
         "Tool Overhang Ratio (L/D):",
@@ -340,26 +468,35 @@ with st.sidebar:
         max_value=8.0,
         value=3.0,
         step=0.1,
+        key="overhang_ld",
         help="Exposed tool length divided by tool diameter. Beyond L/D = 3.0, chatter and edge chipping accelerate — tool life is derated. Dampened holders halve the derate rate."
     )
     if overhang_input > 3.0:
         st.caption(f"⚠️ L/D = {overhang_input:.1f} exceeds 3×D — overhang derate active.")
 
     coolant_list = list(COOLANT_DATABASE.keys())
-    coolant_index = coolant_list.index(default_coolant) if default_coolant in coolant_list else 0
-    selected_coolant = st.selectbox(
+    coolant_display = [NO_SELECTION] + coolant_list
+    coolant_index = (coolant_list.index(default_coolant) + 1) if default_coolant in coolant_list else 1
+    coolant_choice = st.selectbox(
         "Cooling / Lubrication Method:",
-        coolant_list,
-        index=coolant_index,
-        help="Select 'No Coolant (Bare Dry Cut)' to simulate dry machining — tool life is derated and thermal-risk warnings appear automatically."
+        coolant_display,
+        key="coolant_choice",
+        help="Select 'No Coolant (Bare Dry Cut)' to simulate dry machining — tool life is derated and thermal-risk warnings appear automatically.",
+        **_init("coolant_choice", index=coolant_index),
     )
+    if coolant_choice == NO_SELECTION:
+        selected_coolant = NEUTRAL_COOLANT_KEY
+        st.caption("⚠️ No coolant selection — neutral 1.0x multiplier (distinct from 'No Coolant' dry cutting).")
+    else:
+        selected_coolant = coolant_choice
     if "No Coolant" in selected_coolant:
         st.warning("⚠️ **Bare Dry Cut selected**: tool life reduced ~38%. Suitable for cast iron, ceramic tooling, or light finishing passes only.")
 
     is_roughing = st.checkbox(
         "Heavy Roughing Cut (VB limit = 0.5-0.6 mm)",
-        value=default_roughing,
-        help="ISO 3685 defines VB=0.3mm for precision finishing, or 0.5-0.6mm for roughing."
+        key="roughing_flag",
+        help="ISO 3685 defines VB=0.3mm for precision finishing, or 0.5-0.6mm for roughing.",
+        **_init("roughing_flag", value=default_roughing),
     )
 
     st.markdown("---")
@@ -373,28 +510,31 @@ with st.sidebar:
         "Cutting Speed (Vc, m/min):",
         min_value=max(5.0, float(v_rec_min * 0.4)),
         max_value=float(v_rec_max * 1.8),
-        value=float(min(max(default_vc, v_rec_min * 0.5), v_rec_max * 1.7)),
         step=1.0,
-        help=f"Empirical research range: {v_rec_min:.0f} – {v_rec_max:.0f} m/min"
+        key="vc_input",
+        help=f"Empirical research range: {v_rec_min:.0f} – {v_rec_max:.0f} m/min",
+        **_init("vc_input", value=float(min(max(default_vc, v_rec_min * 0.5), v_rec_max * 1.7))),
     )
 
     feed_input = st.slider(
         f"Feed Rate (f, {op_info.feed_unit}):",
         min_value=max(0.01, float(pairing_info.f_min * 0.5)),
         max_value=float(pairing_info.f_max * 1.8),
-        value=float(min(max(default_feed, pairing_info.f_min * 0.6), pairing_info.f_max * 1.6)),
         step=0.01,
         format="%.3f",
-        help=f"Empirical research range: {pairing_info.f_min:.3f} – {pairing_info.f_max:.3f} {op_info.feed_unit}"
+        key="feed_input",
+        help=f"Empirical research range: {pairing_info.f_min:.3f} – {pairing_info.f_max:.3f} {op_info.feed_unit}",
+        **_init("feed_input", value=float(min(max(default_feed, pairing_info.f_min * 0.6), pairing_info.f_max * 1.6))),
     )
 
     ap_input = st.slider(
         "Depth of Cut (ap, mm):",
         min_value=max(0.1, float(pairing_info.ap_min * 0.5)),
         max_value=float(pairing_info.ap_max * 1.8),
-        value=float(min(max(default_ap, pairing_info.ap_min * 0.6), pairing_info.ap_max * 1.6)),
         step=0.1,
-        help=f"Empirical research range: {pairing_info.ap_min:.1f} – {pairing_info.ap_max:.1f} mm"
+        key="ap_input",
+        help=f"Empirical research range: {pairing_info.ap_min:.1f} – {pairing_info.ap_max:.1f} mm",
+        **_init("ap_input", value=float(min(max(default_ap, pairing_info.ap_min * 0.6), pairing_info.ap_max * 1.6))),
     )
 
     st.markdown("---")
@@ -403,9 +543,10 @@ with st.sidebar:
         "Current Elapsed Cutting Time (minutes):",
         min_value=0.0,
         max_value=500.0,
-        value=float(default_time),
         step=1.0,
-        help="Enter current machining time on this tool edge to estimate Remaining Useful Life (RUL)."
+        key="time_input",
+        help="Enter current machining time on this tool edge to estimate Remaining Useful Life (RUL).",
+        **_init("time_input", value=float(default_time)),
     )
 
 
