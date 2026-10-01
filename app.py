@@ -797,8 +797,10 @@ with tab2:
 # TAB 3: Springer Research Reference & Evidence
 # ==============================================================================
 with tab3:
-    st.subheader("📚 Peer-Reviewed Springer Literature Grounding")
+    st.subheader("📚 Springer Research & Handbook Reference")
     ref = pred.pairing.springer_ref
+    range_label = "Springer Tested Range" if "Peer-reviewed" in ref.evidence_level else "Handbook Starting Range"
+    st.caption(ref.evidence_level)
 
     st.markdown(f"""
     ### 📖 {ref.title}
@@ -841,19 +843,19 @@ with tab3:
         {
             "Parameter": "Cutting Speed (Vc)",
             "User Value": f"{pred.vc:.1f} m/min",
-            "Springer Tested Range": f"{pred.pairing.v_min:.1f} – {pred.pairing.v_max:.1f} m/min",
+            range_label: f"{pred.pairing.v_min:.1f} – {pred.pairing.v_max:.1f} m/min",
             "In Boundary": "✅ YES" if (pred.pairing.v_min <= pred.vc <= pred.pairing.v_max) else "⚠️ EXTRAPOLATED"
         },
         {
             "Parameter": "Feed Rate (f)",
             "User Value": f"{pred.feed:.3f} mm/rev",
-            "Springer Tested Range": f"{pred.pairing.f_min:.3f} – {pred.pairing.f_max:.3f} mm/rev",
+            range_label: f"{pred.pairing.f_min:.3f} – {pred.pairing.f_max:.3f} mm/rev",
             "In Boundary": "✅ YES" if (pred.pairing.f_min <= pred.feed <= pred.pairing.f_max) else "⚠️ EXTRAPOLATED"
         },
         {
             "Parameter": "Depth of Cut (ap)",
             "User Value": f"{pred.ap:.2f} mm",
-            "Springer Tested Range": f"{pred.pairing.ap_min:.2f} – {pred.pairing.ap_max:.2f} mm",
+            range_label: f"{pred.pairing.ap_min:.2f} – {pred.pairing.ap_max:.2f} mm",
             "In Boundary": "✅ YES" if (pred.pairing.ap_min <= pred.ap <= pred.pairing.ap_max) else "⚠️ EXTRAPOLATED"
         }
     ])

@@ -26,6 +26,7 @@ class SpringerReference:
     experimental_setup: str
     observed_wear_mechanisms: str
     key_findings: str
+    evidence_level: str = "Peer-reviewed experimental study"
 
 
 @dataclass
@@ -373,6 +374,62 @@ WORKPIECE_DATABASE: Dict[str, WorkpieceDefinition] = {
         primary_wear_mode="Severe abrasive wear (2-3× grey iron) from compacted graphite-pearlite interface; coating adhesion failure.",
         description="Next-generation diesel engine block material. Graphite worm morphology eliminates self-lubrication benefit of grey iron, dramatically increasing tool wear rate."
     ),
+    "AISI 52100 Bearing Steel (Hardened)": WorkpieceDefinition(
+        key="AISI 52100",
+        name="AISI 52100 / 100Cr6 Bearing Steel (58-62 HRC)",
+        iso_group="H", hardness="58 - 62 HRC",
+        thermal_conductivity="46 W/m·K",
+        base_taylor_C=92.0, taylor_x=0.45, taylor_y=0.18,
+        v_rec_min=80.0, v_rec_max=220.0, f_rec_min=0.04, f_rec_max=0.16,
+        ap_rec_min=0.08, ap_rec_max=0.7,
+        primary_wear_mode="Abrasive flank wear, binder abrasion and thermally activated diffusion at high speed.",
+        description="High-carbon chromium bearing steel used for rings and races; hard turning needs a controlled cutting edge radius and a robust PCBN grade."
+    ),
+    "AISI H13 Tool Steel (Pre-Hardened)": WorkpieceDefinition(
+        key="AISI H13", name="AISI H13 Hot-Work Tool Steel (44-50 HRC)",
+        iso_group="H", hardness="44 - 50 HRC", thermal_conductivity="24 W/m·K",
+        base_taylor_C=135.0, taylor_x=0.47, taylor_y=0.20,
+        v_rec_min=70.0, v_rec_max=190.0, f_rec_min=0.05, f_rec_max=0.22,
+        ap_rec_min=0.15, ap_rec_max=1.5,
+        primary_wear_mode="Carbide abrasion, crater wear and edge micro-chipping at interrupted engagement.",
+        description="Hot-work die steel used in molds and die-casting tooling; thermal fatigue and edge preparation are central to tool life."
+    ),
+    "Inconel 625 (Nickel Superalloy)": WorkpieceDefinition(
+        key="Inconel 625", name="Inconel 625 (Ni-Cr-Mo Superalloy)",
+        iso_group="S", hardness="32 - 38 HRC", thermal_conductivity="9.8 W/m·K (Very Low)",
+        base_taylor_C=25.0, taylor_x=0.53, taylor_y=0.23,
+        v_rec_min=20.0, v_rec_max=65.0, f_rec_min=0.05, f_rec_max=0.20,
+        ap_rec_min=0.25, ap_rec_max=1.8,
+        primary_wear_mode="Notch wear, adhesion and diffusion-driven crater wear.",
+        description="Corrosion-resistant nickel alloy for marine and chemical-service components; retain a sharp edge and avoid dwelling in the work-hardened layer."
+    ),
+    "Aluminum 2024-T3 (Aerospace Al)": WorkpieceDefinition(
+        key="Al 2024-T3", name="Aluminum 2024-T3 (Al-Cu-Mg Aerospace Alloy)",
+        iso_group="N", hardness="120 HB", thermal_conductivity="121 W/m·K",
+        base_taylor_C=1100.0, taylor_x=0.40, taylor_y=0.18,
+        v_rec_min=250.0, v_rec_max=1200.0, f_rec_min=0.06, f_rec_max=0.45,
+        ap_rec_min=0.4, ap_rec_max=4.5,
+        primary_wear_mode="Aluminum adhesion and built-up edge; local abrasion from copper-rich phases.",
+        description="High-strength aircraft alloy that benefits from polished, high-positive-rake carbide or PCD tooling and efficient chip evacuation."
+    ),
+    "Copper C110 (Electrolytic Copper)": WorkpieceDefinition(
+        key="Copper C110", name="Copper C110 (ETP High-Conductivity Copper)",
+        iso_group="N", hardness="45 - 75 HB", thermal_conductivity="391 W/m·K",
+        base_taylor_C=700.0, taylor_x=0.38, taylor_y=0.17,
+        v_rec_min=120.0, v_rec_max=600.0, f_rec_min=0.05, f_rec_max=0.30,
+        ap_rec_min=0.25, ap_rec_max=3.0,
+        primary_wear_mode="Built-up edge and smearing on a dull edge; burr formation.",
+        description="Ductile electrical copper requiring sharp polished geometry and stable chip control to limit burrs and surface smearing."
+    ),
+    "PEEK (High-Performance Polymer)": WorkpieceDefinition(
+        key="PEEK", name="PEEK (Polyether Ether Ketone, Unfilled)",
+        iso_group="N", hardness="Rockwell M94", thermal_conductivity="0.25 W/m·K",
+        base_taylor_C=420.0, taylor_x=0.32, taylor_y=0.14,
+        v_rec_min=80.0, v_rec_max=350.0, f_rec_min=0.04, f_rec_max=0.25,
+        ap_rec_min=0.2, ap_rec_max=3.0,
+        primary_wear_mode="Heat-induced melting, smearing and burr formation rather than abrasive flank wear.",
+        description="High-performance thermoplastic for medical and aerospace fixtures; use sharp polished edges and manage heat to preserve dimensional accuracy."
+    ),
 }
 
 
@@ -463,6 +520,34 @@ TOOL_DATABASE: Dict[str, ToolDefinition] = {
         suitable_iso=["S", "M", "P", "K", "N"],
         incompatible_iso=[],
         description="Sub-micron grain size increases hardness by ~15% over standard carbide while retaining toughness. Particularly effective for finishing titanium and Inconel at moderate speeds."
+    ),
+    "SiAlON Ceramic (Beta-SiAlON)": ToolDefinition(
+        key="SiAlON", name="SiAlON Ceramic (Beta-SiAlON)", category="Advanced Ceramic",
+        taylor_n=0.40, speed_factor=2.7, max_temp_c=1350.0,
+        toughness_rating="Moderate (Thermal-shock sensitive)", suitable_iso=["S", "K", "H"],
+        incompatible_iso=["N"],
+        description="Nitrogen-rich ceramic offering greater toughness than alumina; suited to high-speed dry machining of nickel alloys and cast irons on rigid machines."
+    ),
+    "Cermet (TiC/TiN-Based)": ToolDefinition(
+        key="Cermet", name="Cermet (TiC/TiN-Based Finishing Grade)", category="Cermet",
+        taylor_n=0.30, speed_factor=1.35, max_temp_c=1000.0,
+        toughness_rating="Moderate (Finish-cut specialist)", suitable_iso=["P", "M"],
+        incompatible_iso=["S", "H", "N"],
+        description="Low-affinity titanium-carbonitride tool for high-quality continuous finishing of steels and stainless steels; avoid shock and interruption."
+    ),
+    "Coated HSS (M42 Cobalt)": ToolDefinition(
+        key="Coated HSS", name="Coated M42 Cobalt High-Speed Steel", category="Tool Steel",
+        taylor_n=0.15, speed_factor=0.32, max_temp_c=620.0,
+        toughness_rating="Very High (Drilling, tapping and interrupted cuts)", suitable_iso=["P", "M", "N"],
+        incompatible_iso=["H", "S"],
+        description="Cobalt-alloyed HSS with better red hardness than M2; useful where tough drill, tap or form-tool geometry is more important than maximum surface speed."
+    ),
+    "Monocrystalline Diamond (MCD)": ToolDefinition(
+        key="MCD", name="Monocrystalline Diamond (MCD)", category="Single-Crystal Superabrasive",
+        taylor_n=0.60, speed_factor=5.0, max_temp_c=650.0,
+        toughness_rating="Extreme hardness / Direction-sensitive brittleness", suitable_iso=["N"],
+        incompatible_iso=["P", "M", "H", "S", "K"],
+        description="Ultra-sharp single-crystal diamond for optical-grade non-ferrous finishing; never use against ferrous or nickel alloys because of chemical wear."
     ),
 }
 
@@ -1762,6 +1847,59 @@ SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
             experimental_setup="Standardized dry turning of medium carbon steel to establish Taylor baselines. Speed 80-220 m/min.",
             observed_wear_mechanisms="Classic crater wear on rake face due to diffusion into steel chips above 150 m/min. Flank wear is steady thermal abrasion.",
             key_findings="Serves as the foundational baseline for machinability. Above 180 m/min, uncoated carbide crater wear accelerates exponentially, necessitating coatings (TiN/Al2O3)."
+        )
+    ),
+
+    "AISI 52100 Bearing Steel | PCBN Finishing": MaterialToolPairing(
+        workpiece_name="AISI 52100 / 100Cr6 Bearing Steel (58-62 HRC)",
+        workpiece_iso="H", tool_material="PCBN with 30 µm honed cutting edge",
+        coating="Uncoated PCBN", taylor_C=260.0, taylor_n=0.42,
+        taylor_x=0.44, taylor_y=0.18, v_min=90.0, v_max=200.0,
+        f_min=0.05, f_max=0.15, ap_min=0.08, ap_max=0.5,
+        vb_critical_finishing=0.25, vb_critical_roughing=0.45,
+        run_in_vb=0.030, k_runin=0.12, beta_tertiary=0.030,
+        springer_ref=SpringerReference(
+            title="Effect of cutting edge radius on surface roughness and tool wear in hard turning of AISI 52100 steel",
+            authors="Zhao, T., Zhou, J. M., Bushlya, V., et al.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2017, doi="10.1007/s00170-017-0065-z", volume_issue="Vol. 91, pp. 3611-3618",
+            experimental_setup="Hard turning of AISI 52100 with CBN tools using nominal cutting-edge radii of 20, 30 and 40 µm.",
+            observed_wear_mechanisms="Abrasive flank wear and edge-radius-driven changes in contact pressure and surface quality.",
+            key_findings="A nominal 30 µm CBN edge radius delivered the best overall machining performance in the reported comparison."
+        )
+    ),
+    "AISI H13 Tool Steel | PCBN Hard Turning": MaterialToolPairing(
+        workpiece_name="AISI H13 Hot-Work Tool Steel (44-50 HRC)", workpiece_iso="H",
+        tool_material="PCBN hard-turning insert", coating="Uncoated PCBN",
+        taylor_C=240.0, taylor_n=0.41, taylor_x=0.46, taylor_y=0.19,
+        v_min=80.0, v_max=180.0, f_min=0.05, f_max=0.18, ap_min=0.10, ap_max=0.8,
+        vb_critical_finishing=0.25, vb_critical_roughing=0.50,
+        run_in_vb=0.035, k_runin=0.12, beta_tertiary=0.030,
+        springer_ref=SpringerReference(
+            title="Machining of Hard Materials", authors="Davim, J. Paulo (ed.)",
+            journal="Springer manufacturing handbook", year=2011,
+            doi="10.1007/978-1-84996-450-0", volume_issue="Hard machining and advanced cutting tools",
+            experimental_setup="Handbook-derived starting window for PCBN finish hard turning of hot-work tool steel on a rigid machine.",
+            observed_wear_mechanisms="Abrasive wear from alloy carbides and edge chipping from interrupted engagement.",
+            key_findings="Hard machining requires a purpose-selected insert, robust edge preparation and a machine with sufficient rigidity.",
+            evidence_level="Springer handbook starting guidance — validate on machine"
+        )
+    ),
+    "Aluminum 2024-T3 | PCD Finishing": MaterialToolPairing(
+        workpiece_name="Aluminum 2024-T3 (Al-Cu-Mg Aerospace Alloy)", workpiece_iso="N",
+        tool_material="PCD / diamond finishing tool", coating="Polished diamond cutting edge",
+        taylor_C=8500.0, taylor_n=0.55, taylor_x=0.38, taylor_y=0.16,
+        v_min=400.0, v_max=1600.0, f_min=0.06, f_max=0.35, ap_min=0.25, ap_max=3.5,
+        vb_critical_finishing=0.30, vb_critical_roughing=0.50,
+        run_in_vb=0.020, k_runin=0.10, beta_tertiary=0.018,
+        springer_ref=SpringerReference(
+            title="Cutting Tool Technology: Industrial Handbook", authors="Smith, Graham T.",
+            journal="Springer industrial handbook", year=2008,
+            doi="10.1007/978-1-84800-205-0", volume_issue="Cutting-tool materials and milling technology",
+            experimental_setup="Handbook-derived starting window for high-speed non-ferrous finishing with polished diamond tooling.",
+            observed_wear_mechanisms="Adhesion and edge buildup are minimized by a sharp polished rake face; particle abrasion governs long-term wear.",
+            key_findings="Tool material, edge preparation, chip control and machine dynamics must be selected together for high-speed machining.",
+            evidence_level="Springer handbook starting guidance — validate on machine"
         )
     ),
 
