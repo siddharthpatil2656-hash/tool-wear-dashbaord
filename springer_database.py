@@ -2091,6 +2091,54 @@ MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
         description="Manual leadscrew driven, mechanical gearbox, prone to backlash, cross-slide flexure, and vibration during heavy cuts.",
         best_practices="Derate cutting speed by 20-30%. Avoid climb milling without backlash eliminators; choose tougher carbide grades (ISO P35) or HSS."
     ),
+    "5-Axis Simultaneous Milling Center (RTCP)": MachineCharacteristics(
+        category="High-End Milling CNC",
+        rigidity_factor=1.15,
+        vibration_risk="Low",
+        spindle_power_rating="28 - 45 kW (High Torque)",
+        description="Trunnion or gantry-style 5-axis mill with rotary tool center point control, torque motors, and thermal compensation for complex 3D aerospace contouring.",
+        best_practices="Tilt the tool to maintain a consistent lead/lean angle on ball-nose finishing passes; keep the rotary axes in motion to avoid dwell marks from zero cutting speed."
+    ),
+    "CNC Horizontal Machining Center (HMC / Pallet Pool)": MachineCharacteristics(
+        category="High-Production Milling CNC",
+        rigidity_factor=1.10,
+        vibration_risk="Low",
+        spindle_power_rating="22 - 37 kW",
+        description="Horizontal spindle with twin-pallet APC shuttle and 3-point support bed. Excellent chip evacuation and rigidity for prismatic part batch milling.",
+        best_practices="Exploit horizontal chip fall to raise feed rates ~15% over VMC equivalents; use long-edge octomill-style face mills on palletized castings for maximum uptime."
+    ),
+    "CNC Bed-Type Milling Machine (Heavy Knee)": MachineCharacteristics(
+        category="Heavy-Duty Milling CNC",
+        rigidity_factor=1.08,
+        vibration_risk="Low to Moderate",
+        spindle_power_rating="15 - 30 kW",
+        description="Fixed bed with vertically traveling spindle head and heavy box ways. Superior Z-axis rigidity for deep-pocket and large-plate milling.",
+        best_practices="Use the full machine mass for large-diameter face mills; engage multiple teeth simultaneously to average cutting forces and suppress chatter."
+    ),
+    "Gantry / Bridge Milling Machine (Large Envelope)": MachineCharacteristics(
+        category="Large-Format Milling CNC",
+        rigidity_factor=1.02,
+        vibration_risk="Moderate (Long Travel Flexure)",
+        spindle_power_rating="20 - 45 kW",
+        description="Overhead bridge gantry spanning large aerospace molds, hydro turbine blades, or energy components up to 10+ meters in length.",
+        best_practices="Long travels amplify vibration: prefer high-feed inserts with light ae passes over single heavy cuts; verify workpiece support to avoid tramp metal flexure."
+    ),
+    "Universal Milling Machine (Swivel Head, DRO)": MachineCharacteristics(
+        category="Semi-Automatic Toolroom Mill",
+        rigidity_factor=0.88,
+        vibration_risk="Moderate to High",
+        spindle_power_rating="5 - 11 kW",
+        description="Knee-and-column mill with digital readout and manually swiveling head for angled features. Common in toolrooms and repair shops.",
+        best_practices="Lock unused axis slides before cutting; take multiple lighter passes rather than one heavy cut, and use shorter gauge-length end mills to reduce tool overhang."
+    ),
+    "Compact Desktop CNC Mill (Prototyping / Education)": MachineCharacteristics(
+        category="Benchtop / Maker CNC",
+        rigidity_factor=0.70,
+        vibration_risk="High (Light Frame & Runout)",
+        spindle_power_rating="0.5 - 2.2 kW",
+        description="Small polymer or aluminum-frame CNC router/mill with high-RPM trim-router style spindles for PCB, wax, wood, and soft-metal prototyping.",
+        best_practices="Restrict to small diameter tools (<= 6 mm), high spindle speeds with adaptive clearing toolpaths, and low radial engagement (ae <= 30% D) to protect the lightweight frame."
+    ),
 }
 
 

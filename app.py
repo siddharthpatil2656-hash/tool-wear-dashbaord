@@ -40,91 +40,173 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for modern industrial styling
+# Custom CSS — sleek, minimalist design system
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+    .main .block-container {
+        padding-top: 2rem;
+        padding-left: 2.6rem;
+        padding-right: 2.6rem;
+        max-width: 1400px;
+    }
     .main-header {
-        font-size: 2.2rem;
+        font-size: 1.85rem;
         font-weight: 700;
-        color: #1E293B;
-        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
+        color: #0F172A;
+        margin-bottom: 0.1rem;
+    }
+    .accent-line {
+        width: 52px;
+        height: 3px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #4F46E5, #06B6D4);
+        margin: 0.65rem 0 0.85rem 0;
     }
     .sub-header {
-        font-size: 1.05rem;
-        color: #475569;
-        margin-bottom: 1.5rem;
+        font-size: 0.97rem;
+        font-weight: 400;
+        line-height: 1.55;
+        color: #64748B;
+        margin-bottom: 1.7rem;
     }
     .kpi-card {
-        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 1.1rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        background: #FFFFFF;
+        border: 1px solid #EDEFF3;
+        border-radius: 14px;
+        padding: 1.1rem 1.25rem;
+        box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .kpi-card:hover {
+        box-shadow: 0 6px 18px rgba(15,23,42,0.07);
+        transform: translateY(-2px);
     }
     .kpi-title {
-        font-size: 0.85rem;
+        font-size: 0.71rem;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #64748B;
-        margin-bottom: 0.3rem;
+        letter-spacing: 0.08em;
+        color: #94A3B8;
+        margin-bottom: 0.4rem;
     }
     .kpi-value {
-        font-size: 1.9rem;
+        font-size: 1.7rem;
         font-weight: 700;
+        letter-spacing: -0.02em;
         color: #0F172A;
     }
     .kpi-subtext {
-        font-size: 0.82rem;
-        color: #0284C7;
-        margin-top: 0.2rem;
+        font-size: 0.77rem;
+        font-weight: 500;
+        color: #4F46E5;
+        margin-top: 0.3rem;
     }
     .springer-badge {
-        background-color: #EEF2FF;
-        color: #3730A3;
-        border: 1px solid #C7D2FE;
-        border-radius: 6px;
-        padding: 4px 10px;
-        font-size: 0.82rem;
+        background-color: #F5F6FF;
+        color: #4F46E5;
+        border: 1px solid #E4E6FF;
+        border-radius: 999px;
+        padding: 3px 11px;
+        font-size: 0.76rem;
         font-weight: 600;
+        letter-spacing: 0.01em;
         display: inline-block;
         margin-bottom: 0.5rem;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 4px;
+        background-color: transparent;
+        border-bottom: 1px solid #EEF0F4;
     }
     .stTabs [data-baseweb="tab"] {
-        padding: 10px 18px;
+        padding: 9px 16px;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #64748B;
+        border-radius: 8px;
+        background-color: transparent;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #0F172A;
+        background-color: #F5F6FA;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #4F46E5 !important;
+        background-color: #EEF0FF !important;
         font-weight: 600;
-        border-radius: 8px 8px 0 0;
+    }
+    hr {
+        border: none;
+        border-top: 1px solid #EEF0F4;
+        margin: 1.6rem 0;
     }
     table {
         width: 100%;
         border-collapse: collapse;
         margin: 1rem 0;
-        font-size: 0.92rem;
+        font-size: 0.9rem;
         background-color: #FFFFFF;
-        border-radius: 8px;
+        border: 1px solid #EDEFF3;
+        border-radius: 10px;
         overflow: hidden;
     }
     th {
-        background-color: #F1F5F9 !important;
-        color: #0F172A !important;
+        background-color: #F8F9FC !important;
+        color: #334155 !important;
         font-weight: 600;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
         padding: 10px 14px;
-        border: 1px solid #CBD5E1;
+        border: none;
+        border-bottom: 1px solid #EDEFF3;
         text-align: left;
     }
     td {
         padding: 10px 14px;
-        border: 1px solid #E2E8F0;
+        border: none;
+        border-bottom: 1px solid #F3F4F8;
+        color: #475569;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) { background-color: #FBFBFD; }
+    [data-testid="stSidebar"] {
+        background-color: #FBFBFD;
+        border-right: 1px solid #EEF0F4;
+    }
+    [data-testid="stSidebar"] .stMarkdown h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: #0F172A;
+    }
+    [data-testid="stSidebar"] .stMarkdown h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
         color: #334155;
     }
-    tr:nth-child(even) {
-        background-color: #F8FAFC;
+    [data-testid="stSidebar"] hr { margin: 1.2rem 0; }
+    .stSlider label p, .stNumberInput label p, .stSelectbox label p {
+        font-weight: 500;
+        font-size: 0.88rem;
+        color: #334155;
     }
-    [data-testid="stSidebar"] { border-right: 1px solid #E5E7EB; }
-    [data-testid="stSidebar"] .stMarkdown h2 { font-size: 1.15rem; }
+    [data-testid="stMetric"] {
+        background: #FFFFFF;
+        border: 1px solid #EDEFF3;
+        border-radius: 12px;
+        padding: 0.9rem 1rem;
+    }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    header[data-testid="stHeader"] { background-color: transparent; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -395,6 +477,7 @@ opt_report = optimize_tool_wear(
 
 # Main Content Area Header
 st.markdown("<div class='main-header'>⚙️ Machining Tool Wear & Life Intelligence Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div class='accent-line'></div>", unsafe_allow_html=True)
 st.markdown(
     f"<div class='sub-header'>Forecasting flank wear ($VB$), Remaining Useful Life (RUL), and physics-driven wear minimization grounded in peer-reviewed <b>Springer IJAMT</b> experimental research.</div>",
     unsafe_allow_html=True
