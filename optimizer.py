@@ -14,6 +14,7 @@ from springer_database import (
     MILLING_TOOLING_DATABASE,
     OPERATION_DATABASE,
     SPRINGER_DATABASE,
+    TOOL_HOLDER_DATABASE,
     MaterialToolPairing,
 )
 from tool_physics import calculate_mrr, calculate_tool_life, evaluate_confidence
@@ -41,6 +42,8 @@ class WearMinimizationReport:
     current_mrr: float
     operation_name: Optional[str]
     milling_tooling_name: Optional[str]
+    holder_name: Optional[str]
+    overhang_ratio: Optional[float]
 
     # Optimized strategies
     balanced_strategy: OptimizedParameters   # Maintains MRR, vastly improves life
@@ -66,6 +69,8 @@ def generate_pareto_curve(
     steps: int = 40,
     operation_name: Optional[str] = None,
     milling_tooling_name: Optional[str] = None,
+    holder_name: Optional[str] = None,
+    overhang_ratio: Optional[float] = None,
 ) -> Tuple[List[float], List[float]]:
     """
     Generates Pareto optimal frontier between Tool Life (min) and Material Removal Rate (cm3/min).
@@ -87,6 +92,8 @@ def generate_pareto_curve(
             pairing, machine, coolant, v, nominal_feed, nominal_ap, is_roughing,
             operation_name=operation_name,
             milling_tooling_name=milling_tooling_name,
+            holder_name=holder_name,
+            overhang_ratio=overhang_ratio,
         )
         mrr = calculate_mrr(
             v, nominal_feed, nominal_ap,
@@ -110,6 +117,8 @@ def optimize_tool_wear(
     custom_pairing: Optional[MaterialToolPairing] = None,
     operation_name: Optional[str] = None,
     milling_tooling_name: Optional[str] = None,
+    holder_name: Optional[str] = None,
+    overhang_ratio: Optional[float] = None,
 ) -> WearMinimizationReport:
     """
     Analyzes current machining parameters and derives mathematically optimized
@@ -130,6 +139,8 @@ def optimize_tool_wear(
         pairing, machine, coolant, current_vc, current_feed, current_ap, is_roughing,
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
     )
     base_mrr = calculate_mrr(
         current_vc, current_feed, current_ap,
@@ -152,6 +163,8 @@ def optimize_tool_wear(
         pairing, machine, coolant, opt_vc_balanced, opt_feed_balanced, opt_ap_balanced, is_roughing,
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
     )
     mrr_balanced = calculate_mrr(
         opt_vc_balanced, opt_feed_balanced, opt_ap_balanced,
@@ -181,6 +194,8 @@ def optimize_tool_wear(
         pairing, machine, coolant, opt_vc_maxlife, opt_feed_maxlife, opt_ap_maxlife, is_roughing,
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
     )
     mrr_maxlife = calculate_mrr(
         opt_vc_maxlife, opt_feed_maxlife, opt_ap_maxlife,
@@ -209,6 +224,8 @@ def optimize_tool_wear(
         pairing, machine, coolant, opt_vc_he, opt_feed_he, opt_ap_he, is_roughing,
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
     )
     mrr_he = calculate_mrr(
         opt_vc_he, opt_feed_he, opt_ap_he,
@@ -281,6 +298,26 @@ def optimize_tool_wear(
     elif "High-Speed" in machine_name:
         machine_tips.append("**Dynamic Stability Lobes**: In high-speed milling, use tap-testing or harmonic speed tuning to place the spindle speed at a stability lobe peak, eliminating chatter-induced micro-fractures.")
 
+    # Tool holder & overhang advice
+    if holder_name and holder_name in TOOL_HOLDER_DATABASE:
+        holder = TOOL_HOLDER_DATABASE[holder_name]
+        machine_tips.append(
+            f"**Tool Holding System ({holder.name.split('(')[0].strip()})**: "
+            f"Runout accuracy {holder.runout_accuracy}, rigidity multiplier **{holder.rigidity_multiplier:.2f}x**. "
+            f"{holder.best_practices}"
+        )
+    if overhang_ratio and overhang_ratio > 3.0:
+        holder_is_dampened = holder_name and "Dampened" in TOOL_HOLDER_DATABASE[holder_name].name
+        dampened_note = (
+            "Dampened holder selected — overhang penalty halved."
+            if holder_is_dampened
+            else "Switching to a dampened anti-vibration holder halves the overhang derate rate (0.070 → 0.035 per unit L/D)."
+        )
+        machine_tips.append(
+            f"**Overhang Management (L/D = {overhang_ratio:.1f})**: Exposed length beyond 3×D amplifies "
+            f"chatter and edge chipping; tool life is derated accordingly. {dampened_note}"
+        )
+
     # Coolant advice
     coolant_tips = [
         f"**Selected Cooling**: {coolant.name} (Multiplier: {coolant.life_multiplier:.2f}x).",
@@ -295,6 +332,8 @@ def optimize_tool_wear(
         pairing, machine_name, coolant_name, is_roughing,
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
     )
 
     return WearMinimizationReport(
@@ -305,6 +344,8 @@ def optimize_tool_wear(
         current_mrr=round(base_mrr, 2),
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
         balanced_strategy=balanced_strat,
         max_life_strategy=max_life_strat,
         high_efficiency_strategy=he_strat,

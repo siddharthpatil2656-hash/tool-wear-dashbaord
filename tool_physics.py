@@ -16,6 +16,7 @@ from springer_database import (
     MILLING_TOOLING_DATABASE,
     OPERATION_DATABASE,
     SPRINGER_DATABASE,
+    TOOL_HOLDER_DATABASE,
     CoolantCharacteristics,
     MachineCharacteristics,
     MaterialToolPairing,
@@ -38,6 +39,8 @@ class ToolWearPrediction:
     is_roughing: bool
     operation_name: Optional[str]
     milling_tooling_name: Optional[str]
+    holder_name: Optional[str]
+    overhang_ratio: Optional[float]  # L/D overhang-to-diameter ratio
     # Output metrics
     tool_life_minutes: float
     mrr_cm3_min: float
@@ -118,11 +121,13 @@ def calculate_tool_life(
     is_roughing: bool = False,
     operation_name: Optional[str] = None,
     milling_tooling_name: Optional[str] = None,
+    holder_name: Optional[str] = None,
+    overhang_ratio: Optional[float] = None,
 ) -> float:
     """
     Computes nominal and effective tool life using Extended Taylor's Law:
     T_nominal = (C / (Vc * feed^x * ap^y))^(1/n)
-    T_effective = T_nominal * k_machine * k_coolant * k_operation * k_tooling
+    T_effective = T_nominal * k_machine * k_coolant * k_operation * k_tooling * k_holder * k_overhang
     """
     # Guard against invalid negative/zero inputs
     vc = max(1.0, vc)
@@ -167,6 +172,21 @@ def calculate_tool_life(
     if milling_tooling_name and milling_tooling_name in MILLING_TOOLING_DATABASE:
         tooling_factor = MILLING_TOOLING_DATABASE[milling_tooling_name].life_multiplier
 
+    # Holder rigidity factor: grip accuracy & damping from the tool holding system
+    holder_factor = 1.0
+    holder_is_dampened = False
+    if holder_name and holder_name in TOOL_HOLDER_DATABASE:
+        holder = TOOL_HOLDER_DATABASE[holder_name]
+        holder_factor = holder.rigidity_multiplier
+        holder_is_dampened = "Dampened" in holder.name
+
+    # Overhang factor: L/D > 3 amplifies vibration & deflection, accelerating edge chipping.
+    # Passive-mass dampened holders halve the penalty.
+    overhang_factor = 1.0
+    if overhang_ratio and overhang_ratio > 3.0:
+        derate_rate = 0.035 if holder_is_dampened else 0.07
+        overhang_factor = max(0.55, 1.0 - derate_rate * (overhang_ratio - 3.0))
+
     t_effective = (
         t_nominal
         * machine.rigidity_factor
@@ -174,6 +194,8 @@ def calculate_tool_life(
         * roughing_factor
         * operation_factor
         * tooling_factor
+        * holder_factor
+        * overhang_factor
     )
 
     # Floor at 0.5 minutes, ceiling at 2000 minutes
@@ -299,6 +321,8 @@ def predict_tool_wear(
     custom_pairing: Optional[MaterialToolPairing] = None,
     operation_name: Optional[str] = None,
     milling_tooling_name: Optional[str] = None,
+    holder_name: Optional[str] = None,
+    overhang_ratio: Optional[float] = None,
 ) -> ToolWearPrediction:
     """
     Executes full predictive tool wear and life calculations.
@@ -320,6 +344,8 @@ def predict_tool_wear(
         pairing, machine, coolant, vc, feed, ap, is_roughing,
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
     )
 
     # 2. Material removal rate
@@ -363,6 +389,30 @@ def predict_tool_wear(
                 f"the selected {vc:.0f} m/min risks rapid edge softening. Reduce speed or switch to carbide."
             )
 
+    # 6. Coolant-delivery & overhang warnings
+    if "No Coolant" in coolant_name:
+        if vc > pairing.v_min * 1.5:
+            conf_notes.append(
+                f"⚠️ **NO-COOLANT THERMAL RISK**: Running at {vc:.0f} m/min with zero fluid delivery "
+                f"accelerates diffusion wear and crater wear. Restrict bare dry cuts to low speeds "
+                f"(≤ {pairing.v_min * 1.5:.0f} m/min), cast iron, or very light finishing passes."
+            )
+        else:
+            conf_notes.append(
+                "ℹ️ **BARE DRY CUTTING**: No coolant applied — tool life reduced by ~38%. "
+                "Suitable for cast iron and short/light passes only."
+            )
+    if overhang_ratio and overhang_ratio > 3.0:
+        dampened_note = (
+            " Dampened holder selected — penalty halved."
+            if (holder_name and "Dampened" in TOOL_HOLDER_DATABASE[holder_name].name)
+            else " Consider a dampened anti-vibration holder or shorter overhang."
+        )
+        conf_notes.append(
+            f"⚠️ **LONG OVERHANG (L/D = {overhang_ratio:.1f})**: Exposed length beyond 3×D amplifies "
+            f"chatter and edge chipping; tool life derated accordingly.{dampened_note}"
+        )
+
     return ToolWearPrediction(
         pairing_key=eff_pairing_key,
         pairing=pairing,
@@ -377,6 +427,8 @@ def predict_tool_wear(
         is_roughing=is_roughing,
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
         tool_life_minutes=t_life,
         mrr_cm3_min=mrr,
         total_volume_cut_cm3=total_volume,

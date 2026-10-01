@@ -20,6 +20,7 @@ from springer_database import (
     COATING_DATABASE,
     OPERATION_DATABASE,
     MILLING_TOOLING_DATABASE,
+    TOOL_HOLDER_DATABASE,
     synthesize_custom_pairing,
 )
 from tool_physics import (
@@ -162,7 +163,7 @@ with st.sidebar:
         default_ap = 1.20
         default_time = 15.0
         default_roughing = False
-        default_operation = "Turning (OD/ID Continuous Cut)"
+        default_operation = "End Milling / Shoulder Milling"
         default_milling_tooling = None
 
     st.markdown("---")
@@ -269,18 +270,19 @@ with st.sidebar:
         "Which Machine is Used for Machining?",
         machine_list,
         index=machine_index,
-        help="Machine rigidity directly scales dynamic chatter vibration and tool degradation rate."
+        help="Machine rigidity directly scales dynamic chatter vibration and tool degradation rate. The machine family (milling / turning / universal) determines which operations, cutters and holders are available."
     )
+    machine_info = MACHINE_DATABASE[selected_machine]
+    m_family = machine_info.family
 
-    coolant_list = list(COOLANT_DATABASE.keys())
-    coolant_index = coolant_list.index(default_coolant) if default_coolant in coolant_list else 0
-    selected_coolant = st.selectbox(
-        "Cooling / Lubrication Method:",
-        coolant_list,
-        index=coolant_index,
-    )
-
-    operation_list = list(OPERATION_DATABASE.keys())
+    # Operations are filtered by the selected machine's family
+    if m_family == "milling":
+        allowed_op_families = {"milling", "drilling", "boring"}
+    elif m_family == "turning":
+        allowed_op_families = {"turning", "drilling"}
+    else:  # universal
+        allowed_op_families = {"milling", "turning", "drilling", "boring"}
+    operation_list = [k for k, v in OPERATION_DATABASE.items() if v.family in allowed_op_families]
     operation_index = operation_list.index(default_operation) if default_operation in operation_list else 0
     selected_operation = st.selectbox(
         "Machining Operation:",
@@ -291,8 +293,9 @@ with st.sidebar:
     op_info = OPERATION_DATABASE[selected_operation]
     st.caption(f"🏭 **{op_info.family.capitalize()}** | Life Factor: {op_info.life_multiplier:.2f}x | {op_info.description}")
 
+    # Milling cutter is only accessible on milling machines running milling operations
     selected_milling_tooling = None
-    if op_info.family == "milling":
+    if m_family == "milling" and op_info.family == "milling":
         tooling_list = list(MILLING_TOOLING_DATABASE.keys())
         tooling_index = tooling_list.index(default_milling_tooling) if default_milling_tooling in tooling_list else 0
         selected_milling_tooling = st.selectbox(
@@ -310,6 +313,48 @@ with st.sidebar:
             unsafe_allow_html=True
         )
         st.caption(f"💡 **Best practice**: {mt_info.best_practices}")
+
+    # Tool holder filtered by machine family
+    if m_family == "milling":
+        holder_keys = [k for k, h in TOOL_HOLDER_DATABASE.items() if h.applicable_family in ("milling", "both")]
+        default_holder = "Shrink-Fit Holder (HSK, Balanced G2.5)"
+    elif m_family == "turning":
+        holder_keys = [k for k, h in TOOL_HOLDER_DATABASE.items() if h.applicable_family in ("turning", "both")]
+        default_holder = "Standard ISO Turning Tool Holder (Rigid Clamp)"
+    else:
+        holder_keys = list(TOOL_HOLDER_DATABASE.keys())
+        default_holder = "Standard ER Collet Chuck"
+    holder_index = holder_keys.index(default_holder) if default_holder in holder_keys else 0
+    selected_holder = st.selectbox(
+        "Tool Holder / Chucking System:",
+        holder_keys,
+        index=holder_index,
+        help="Holder rigidity and runout accuracy scale tool life. Dampened anti-vibration holders halve the overhang penalty."
+    )
+    holder_info = TOOL_HOLDER_DATABASE[selected_holder]
+    st.caption(f"🔩 **Runout**: {holder_info.runout_accuracy} | Rigidity Multiplier: {holder_info.rigidity_multiplier:.2f}x")
+
+    overhang_input = st.slider(
+        "Tool Overhang Ratio (L/D):",
+        min_value=0.5,
+        max_value=8.0,
+        value=3.0,
+        step=0.1,
+        help="Exposed tool length divided by tool diameter. Beyond L/D = 3.0, chatter and edge chipping accelerate — tool life is derated. Dampened holders halve the derate rate."
+    )
+    if overhang_input > 3.0:
+        st.caption(f"⚠️ L/D = {overhang_input:.1f} exceeds 3×D — overhang derate active.")
+
+    coolant_list = list(COOLANT_DATABASE.keys())
+    coolant_index = coolant_list.index(default_coolant) if default_coolant in coolant_list else 0
+    selected_coolant = st.selectbox(
+        "Cooling / Lubrication Method:",
+        coolant_list,
+        index=coolant_index,
+        help="Select 'No Coolant (Bare Dry Cut)' to simulate dry machining — tool life is derated and thermal-risk warnings appear automatically."
+    )
+    if "No Coolant" in selected_coolant:
+        st.warning("⚠️ **Bare Dry Cut selected**: tool life reduced ~38%. Suitable for cast iron, ceramic tooling, or light finishing passes only.")
 
     is_roughing = st.checkbox(
         "Heavy Roughing Cut (VB limit = 0.5-0.6 mm)",
@@ -377,6 +422,8 @@ pred = predict_tool_wear(
     custom_pairing=pairing_info,
     operation_name=selected_operation,
     milling_tooling_name=selected_milling_tooling,
+    holder_name=selected_holder,
+    overhang_ratio=overhang_input,
 )
 
 opt_report = optimize_tool_wear(
@@ -390,6 +437,8 @@ opt_report = optimize_tool_wear(
     custom_pairing=pairing_info,
     operation_name=selected_operation,
     milling_tooling_name=selected_milling_tooling,
+    holder_name=selected_holder,
+    overhang_ratio=overhang_input,
 )
 
 
@@ -474,7 +523,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "📈 Tool Life & Wear Progression (Graphical)",
     "🎯 How to Minimize Tool Wear (Optimization)",
     "📚 Springer Research Reference & Evidence",
-    "📊 Batch Comparison & Data Export"
+    "📊 Scenario Comparison & Data Export"
 ])
 
 
@@ -576,7 +625,8 @@ with tab1:
         t_sweep = [
             calculate_tool_life(
                 pred.pairing, pred.machine, pred.coolant, v, pred.feed, pred.ap, pred.is_roughing,
-                operation_name=pred.operation_name, milling_tooling_name=pred.milling_tooling_name
+                operation_name=pred.operation_name, milling_tooling_name=pred.milling_tooling_name,
+                holder_name=pred.holder_name, overhang_ratio=pred.overhang_ratio
             )
             for v in v_sweep
         ]
@@ -643,7 +693,8 @@ with tab1:
                 Z_life[i, j] = calculate_tool_life(
                     pred.pairing, pred.machine, pred.coolant,
                     V_mesh[i, j], F_mesh[i, j], pred.ap, pred.is_roughing,
-                    operation_name=pred.operation_name, milling_tooling_name=pred.milling_tooling_name
+                    operation_name=pred.operation_name, milling_tooling_name=pred.milling_tooling_name,
+                    holder_name=pred.holder_name, overhang_ratio=pred.overhang_ratio
                 )
 
         fig_contour = go.Figure(data=go.Contour(
@@ -985,6 +1036,8 @@ with tab4:
         "coolant_applied": pred.coolant_name,
         "machining_operation": pred.operation_name,
         "milling_cutter": pred.milling_tooling_name,
+        "tool_holder": pred.holder_name,
+        "tool_overhang_ratio_ld": pred.overhang_ratio,
         "cutting_speed_vc_m_min": pred.vc,
         "feed_rate_" + op_info.feed_unit.replace("/", "_").replace(" ", "_"): pred.feed,
         "depth_of_cut_ap_mm": pred.ap,
