@@ -112,12 +112,6 @@ def optimize_tool_wear(
     machine = MACHINE_DATABASE[machine_name]
     coolant = COOLANT_DATABASE[coolant_name]
 
-    # At zero speed there is no production baseline to optimise. Plan from the
-    # lowest validated cutting speed instead, so the dashboard can still offer
-    # a safe restart setting without dividing by zero.
-    if current_vc <= 0:
-        current_vc = pairing.v_min
-
     # Current baseline
     base_life = calculate_tool_life(pairing, machine, coolant, current_vc, current_feed, current_ap, is_roughing)
     base_mrr = calculate_mrr(current_vc, current_feed, current_ap)

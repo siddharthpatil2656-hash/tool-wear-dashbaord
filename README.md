@@ -13,7 +13,6 @@ Predictions and physics models are **grounded in peer-reviewed experimental lite
    - **Tool Materials & Coatings**: Submicron Tungsten Carbide, PVD TiAlN / AlCrN, Multi-layer CVD $Ti(C,N)/Al_2O_3$, Silicon Nitride & Whisker Ceramics, Polycrystalline Cubic Boron Nitride (PCBN), Polycrystalline Diamond (PCD), and M2 High-Speed Steel (HSS).
    - **Machine Dynamics**: 5-Axis High-Precision CNC, Heavy-Duty 3-Axis Box-Way VMC, CNC Slant-Bed Lathe, High-Speed Center (20k+ RPM), Standard VMC, and Conventional Manual Lathes/Mills.
    - **Cutting Parameters**: Cutting Speed ($V_c$), Feed Rate ($f$), Depth of Cut ($a_p$), and In-Service Elapsed Time.
-   - **Case-Based Setup**: Name a case, select an operation and production priority, then set a case-specific maximum cutting speed. Speed is selectable from 0 (machine stopped) to that maximum.
    - **Cooling / Lubrication**: High-Pressure Coolant (70-100 bar), Flood Emulsion, MQL, Dry Air Blast, Cryogenic $CO_2/LN_2$.
 
 2. **Forecasting & Graphical Analytics**:
@@ -28,9 +27,9 @@ Predictions and physics models are **grounded in peer-reviewed experimental lite
    - **Pareto Trade-Off Frontier**: Interactive curve of Tool Life vs. Volumetric Productivity.
    - **Physics-Backed Guidance**: Actionable rules on speed leverage, chip thinning, tool coating suitability, and machine chatter mitigation.
 
-4. **Research & Handbook Database Transparency**:
-   - Research pairings use published empirical datasets; practical Springer industrial-handbook, Workshop Technology and HMT Production Technology records are visibly labelled as starting guidance.
-   - Displays full source information (Title, Authors, Journal/handbook, Year, DOI or source link) and its evidence level.
+4. **Springer Research Database Transparency**:
+   - Every prediction is anchored to specific published empirical datasets in Springer's *International Journal of Advanced Manufacturing Technology*.
+   - Displays full paper citation (Title, Authors, Journal, Volume, Year, DOI).
    - Real-time **Prediction Confidence Index** auditing whether user parameters fall inside or outside the verified empirical research boundary.
 
 5. **Scenario Comparison & Export**:

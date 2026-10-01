@@ -29,7 +29,7 @@ def run_tests():
         assert pairing.v_min < pairing.v_max, f"Invalid speed bounds for {key}"
         assert pairing.f_min < pairing.f_max, f"Invalid feed bounds for {key}"
         assert pairing.ap_min < pairing.ap_max, f"Invalid ap bounds for {key}"
-        assert pairing.springer_ref.doi or pairing.springer_ref.source_url, f"Missing source for {key}"
+        assert pairing.springer_ref.doi, f"Missing DOI for {key}"
         passed += 1
     print(f" -> {passed}/{total} Springer pairings verified successfully.")
 
@@ -177,22 +177,6 @@ def run_tests():
     assert opt_synth.balanced_strategy.tool_life_gain_pct > 0
     passed += 1
     print(" -> Custom independent material synthesis & cross-compatibility tests passed.")
-
-    # Test 8: Zero-speed (machine stopped) state remains safe and actionable
-    print("\n[Test 8] Testing zero-speed case state...")
-    total += 1
-    stopped = predict_tool_wear(
-        pairing_key="Ti-6Al-4V | PVD TiAlN Carbide",
-        vc=0.0, feed=0.12, ap=1.2, current_time_min=0.0,
-    )
-    assert stopped.mrr_cm3_min == 0.0
-    assert any("machine is stopped" in note.lower() for note in stopped.confidence_notes)
-    optimize_tool_wear(
-        pairing_key="Ti-6Al-4V | PVD TiAlN Carbide",
-        current_vc=0.0, current_feed=0.12, current_ap=1.2,
-    )
-    passed += 1
-    print(" -> Stopped-machine state returns zero MRR and a safe restart plan.")
 
     print("\n==================================================================")
     print(f"ALL TESTS PASSED! ({passed}/{total} checks successful)")

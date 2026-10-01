@@ -26,8 +26,6 @@ class SpringerReference:
     experimental_setup: str
     observed_wear_mechanisms: str
     key_findings: str
-    evidence_level: str = "Peer-reviewed empirical study"
-    source_url: str = ""
 
 
 @dataclass
@@ -672,9 +670,7 @@ def synthesize_custom_pairing(
 
 
 
-# Curated research and handbook database.  Peer-reviewed records retain their
-# experimental validity envelope; handbook records are explicitly presented as
-# practical starting windows that must be proved out on the user's machine.
+# Comprehensive Springer Database
 SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
     # 1. Titanium Alloy (Ti-6Al-4V) - Aerospace Grade
     "Ti-6Al-4V | PVD TiAlN Carbide": MaterialToolPairing(
@@ -1769,63 +1765,6 @@ SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
         )
     ),
 
-    # Practical reference entries: values are conservative starting windows,
-    # not substitutes for a toolmaker's grade-specific recommendation.
-    "Mild Steel (EN8 / 1040) | HSS Toolbit": MaterialToolPairing(
-        workpiece_name="EN8 / AISI 1040 Mild Carbon Steel (Normalized, 180 HB)",
-        workpiece_iso="P", tool_material="M2 High-Speed Steel (HSS)",
-        coating="Ground HSS / soluble-oil practice", taylor_C=29.0, taylor_n=0.125,
-        taylor_x=0.52, taylor_y=0.25, v_min=18.0, v_max=42.0,
-        f_min=0.08, f_max=0.30, ap_min=0.4, ap_max=2.5,
-        vb_critical_finishing=0.30, vb_critical_roughing=0.55,
-        run_in_vb=0.040, k_runin=0.12, beta_tertiary=0.025,
-        springer_ref=SpringerReference(
-            title="Production Technology: conventional turning reference window",
-            authors="HMT, Bangalore", journal="Production Technology (practical handbook)",
-            year=2001, doi="", volume_issue="Turning and cutting-tool practice",
-            experimental_setup="Practical starting range for conventional turning of normalized medium-carbon steel using a sharp HSS toolbit and soluble-oil coolant.",
-            observed_wear_mechanisms="Thermal softening and flank abrasion; BUE is likely at the lowest speeds when the edge is dull.",
-            key_findings="Use the range as a setup baseline. Confirm speed, feed, power and surface finish on the actual machine before production.",
-            evidence_level="Handbook starting guidance — validate on machine",
-            source_url="https://books.google.co.in/books/about/Production_Technology.html?id=ZhLw_ita62cC"
-        )
-    ),
-    "Grey Cast Iron GG25 | Carbide Insert": MaterialToolPairing(
-        workpiece_name="Grey Cast Iron GG25 (Pearlitic Matrix)", workpiece_iso="K",
-        tool_material="Tungsten Carbide (ISO K20)", coating="CVD TiCN/Al2O3",
-        taylor_C=720.0, taylor_n=0.27, taylor_x=0.42, taylor_y=0.20,
-        v_min=120.0, v_max=300.0, f_min=0.10, f_max=0.40, ap_min=0.5, ap_max=3.5,
-        vb_critical_finishing=0.30, vb_critical_roughing=0.60,
-        run_in_vb=0.040, k_runin=0.12, beta_tertiary=0.030,
-        springer_ref=SpringerReference(
-            title="Cutting Tool Technology: cast-iron turning practice",
-            authors="Graham T. Smith", journal="Cutting Tool Technology: Industrial Handbook (Springer)",
-            year=2008, doi="10.1007/978-1-84800-205-0", volume_issue="Machinability and surface integrity",
-            experimental_setup="Practical carbide-insert starting window for pearlitic grey cast iron; dry/air practice avoids slurry abrasion from graphite fines.",
-            observed_wear_mechanisms="Steady abrasive flank wear from cementite and intermittent-chip edge micro-chipping.",
-            key_findings="Use a robust CVD-coated K-grade insert; confirm the selected grade and cutting data against the insert manufacturer.",
-            evidence_level="Industrial handbook starting guidance",
-            source_url="https://link.springer.com/book/10.1007/978-1-84800-205-0"
-        )
-    ),
-    "Brass C36000 | HSS Toolbit": MaterialToolPairing(
-        workpiece_name="Free-machining Brass C36000", workpiece_iso="N",
-        tool_material="M2 High-Speed Steel (HSS)", coating="Polished, sharp HSS edge",
-        taylor_C=175.0, taylor_n=0.20, taylor_x=0.36, taylor_y=0.18,
-        v_min=45.0, v_max=110.0, f_min=0.06, f_max=0.28, ap_min=0.3, ap_max=2.5,
-        vb_critical_finishing=0.30, vb_critical_roughing=0.50,
-        run_in_vb=0.025, k_runin=0.10, beta_tertiary=0.020,
-        springer_ref=SpringerReference(
-            title="Workshop Technology-I: turning and cutting-tool practice",
-            authors="S. K. Kataria & Sons", journal="Workshop Technology-I (reference text)",
-            year=2020, doi="", volume_issue="Cutting tools, machining and machine tools",
-            experimental_setup="Conventional workshop starting window for free-machining brass using a polished, sharp HSS toolbit.",
-            observed_wear_mechanisms="Low cutting force with occasional edge buildup when lubrication and chip evacuation are poor.",
-            key_findings="Brass is a forgiving workshop material, but tool geometry, runout and the actual alloy temper still govern the usable speed.",
-            evidence_level="Workshop reference starting guidance — validate on machine",
-            source_url="https://www.skkatariaandsons.com/view_book.aspx?book=Workshop+Technology-I&productid=8170"
-        )
-    ),
 }
 
 

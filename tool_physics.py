@@ -60,9 +60,7 @@ def evaluate_confidence(
     notes = []
 
     # Speed check
-    if vc <= 0:
-        notes.append("Cutting speed is 0 m/min: the machine is stopped, so no active cutting prediction is available. Select a positive speed to forecast wear and RUL.")
-    elif vc < pairing.v_min:
+    if vc < pairing.v_min:
         penalty = min(35.0, ((pairing.v_min - vc) / pairing.v_min) * 50.0)
         score -= penalty
         notes.append(f"Cutting speed ({vc:.1f} m/min) is below Springer study baseline ({pairing.v_min:.1f} m/min). Risk of unstable Built-Up Edge (BUE).")
@@ -121,8 +119,6 @@ def calculate_tool_life(
     T_effective = T_nominal * k_machine * k_coolant
     """
     # Guard against invalid negative/zero inputs
-    # A stopped spindle is represented by the display-layer idle state.  Keep a
-    # finite numerical value here so downstream wear plotting remains stable.
     vc = max(1.0, vc)
     feed = max(0.001, feed)
     ap = max(0.05, ap)
