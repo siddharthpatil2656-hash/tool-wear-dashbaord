@@ -38,63 +38,90 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for modern industrial styling
+# Visual system: a compact control rail and a calm, high-contrast analysis surface.
 st.markdown("""
 <style>
+    :root { --ink: #14213d; --muted: #64748b; --line: #e6eaf0; --accent: #1d4ed8; --surface: #ffffff; --canvas: #f7f8fb; }
+    .stApp { background: var(--canvas); color: var(--ink); }
+    .block-container { padding: 2.4rem 2.8rem 3rem; max-width: 1480px; }
     .main-header {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #1E293B;
-        margin-bottom: 0.2rem;
+        font-size: 2.35rem;
+        line-height: 1.05;
+        font-weight: 720;
+        color: var(--ink);
+        letter-spacing: -0.045em;
+        margin: 0.2rem 0 0.35rem;
     }
     .sub-header {
-        font-size: 1.05rem;
-        color: #475569;
-        margin-bottom: 1.5rem;
+        font-size: 0.98rem;
+        color: var(--muted);
+        margin-bottom: 1.6rem;
+        max-width: 680px;
+        line-height: 1.55;
+    }
+    .eyebrow {
+        color: var(--accent);
+        font-size: 0.72rem;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
     }
     .kpi-card {
-        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 1.1rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 1.15rem 1.1rem 1.05rem;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.035);
+        min-height: 118px;
     }
     .kpi-title {
-        font-size: 0.85rem;
-        font-weight: 600;
+        font-size: 0.7rem;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #64748B;
-        margin-bottom: 0.3rem;
+        letter-spacing: 0.09em;
+        color: var(--muted);
+        margin-bottom: 0.5rem;
     }
     .kpi-value {
-        font-size: 1.9rem;
-        font-weight: 700;
-        color: #0F172A;
+        font-size: 1.85rem;
+        font-weight: 720;
+        letter-spacing: -0.035em;
+        color: var(--ink);
     }
     .kpi-subtext {
         font-size: 0.82rem;
-        color: #0284C7;
-        margin-top: 0.2rem;
+        color: #64748b;
+        margin-top: 0.35rem;
     }
     .springer-badge {
-        background-color: #EEF2FF;
-        color: #3730A3;
-        border: 1px solid #C7D2FE;
-        border-radius: 6px;
-        padding: 4px 10px;
-        font-size: 0.82rem;
-        font-weight: 600;
+        background-color: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #dbeafe;
+        border-radius: 999px;
+        padding: 3px 9px;
+        font-size: 0.73rem;
+        font-weight: 650;
         display: inline-block;
         margin-bottom: 0.5rem;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 26px;
+        border-bottom: 1px solid var(--line);
     }
     .stTabs [data-baseweb="tab"] {
-        padding: 10px 18px;
-        font-weight: 600;
-        border-radius: 8px 8px 0 0;
+        padding: 0.65rem 0.1rem 0.7rem;
+        font-size: 0.88rem;
+        font-weight: 650;
+        color: var(--muted);
+    }
+    .stTabs [aria-selected="true"] { color: var(--ink) !important; }
+    .stTabs [data-baseweb="tab-highlight"] { background-color: var(--accent) !important; height: 2px !important; }
+    div[data-testid="stPlotlyChart"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0.35rem 0.55rem 0.15rem;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.025);
     }
     table {
         width: 100%;
@@ -102,36 +129,52 @@ st.markdown("""
         margin: 1rem 0;
         font-size: 0.92rem;
         background-color: #FFFFFF;
-        border-radius: 8px;
+        border-radius: 12px;
         overflow: hidden;
     }
     th {
-        background-color: #F1F5F9 !important;
-        color: #0F172A !important;
+        background-color: #f8fafc !important;
+        color: var(--ink) !important;
         font-weight: 600;
         padding: 10px 14px;
-        border: 1px solid #CBD5E1;
+        border: 1px solid var(--line);
         text-align: left;
     }
     td {
         padding: 10px 14px;
-        border: 1px solid #E2E8F0;
+        border: 1px solid var(--line);
         color: #334155;
     }
     tr:nth-child(even) {
         background-color: #F8FAFC;
     }
+    [data-testid="stSidebar"] { background: #111c34; border-right: 0; }
+    [data-testid="stSidebar"] > div:first-child { background: #111c34; }
+    [data-testid="stSidebar"] .stMarkdown h2 { font-size: 1.3rem; color: #f8fafc; letter-spacing: -0.025em; }
+    [data-testid="stSidebar"] .stMarkdown h3 { font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.11em; margin-top: 1.45rem; }
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] .stCaption { color: #cbd5e1 !important; }
+    [data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div,
+    [data-testid="stSidebar"] [data-testid="stNumberInput"] input,
+    [data-testid="stSidebar"] [data-testid="stTextInput"] input { background: #1b2a49 !important; border-color: #314366 !important; color: #f8fafc !important; border-radius: 8px !important; }
+    [data-testid="stSidebar"] [data-testid="stExpander"] { border: 1px solid #314366; border-radius: 10px; background: #162440; }
+    [data-testid="stSidebar"] hr { border-color: #314366; }
+    [data-testid="stSidebar"] .stAlert { background: #172a4c; color: #dbeafe; border: 1px solid #2e4c7a; border-radius: 10px; }
+    [data-testid="stSidebar"] [data-testid="stSlider"] [data-baseweb="slider"] div { background-color: #60a5fa; }
+    [data-testid="stExpander"] { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    [data-testid="stAlert"] { border-radius: 12px; border: 1px solid #bfdbfe; }
+    [data-testid="stDownloadButton"] button { border-radius: 9px; border: 0; background: var(--accent); color: white; font-weight: 650; }
+    [data-testid="stDownloadButton"] button:hover { background: #1e40af; color: white; }
+    @media (max-width: 900px) { .block-container { padding: 1.35rem 1rem 2rem; } .main-header { font-size: 2rem; } }
 </style>
 """, unsafe_allow_html=True)
 
 
 # Sidebar: Presets and User Inputs
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/cnc-machine.png", width=64)
-    st.markdown("## Machining Setup")
+    st.markdown("## Machining setup")
 
     # 1-Click Industry Presets
-    st.markdown("### ⚡ Quick-Load Presets")
+    st.markdown("### Case library")
     preset_keys = ["-- Custom User Parameters --"] + list(INDUSTRY_PRESETS.keys())
     selected_preset = st.selectbox("Load Industry Case Study:", preset_keys)
 
@@ -158,7 +201,7 @@ with st.sidebar:
         default_roughing = False
 
     st.markdown("---")
-    st.markdown("### 1. Tool & Material Selection")
+    st.markdown("### Tool & material")
 
     # Mode toggle: Independent vs Curated Pairings
     material_mode = st.radio(
@@ -253,7 +296,7 @@ with st.sidebar:
         st.caption(f"**Coating**: {pairing_info.coating}")
 
     st.markdown("---")
-    st.markdown("### 2. Machine Tool & Environment")
+    st.markdown("### Machine & environment")
 
     machine_list = list(MACHINE_DATABASE.keys())
     machine_index = machine_list.index(default_machine) if default_machine in machine_list else 0
@@ -279,19 +322,34 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.markdown("### 3. Cutting Parameters")
+    st.markdown("### Cutting parameters")
 
-    # Dynamic bounds based on Springer empirical data
+    with st.expander("Case-based setup", expanded=False):
+        case_name = st.text_input("Case name", value=selected_preset if selected_preset != "-- Custom User Parameters --" else "Custom machining case")
+        operation_type = st.selectbox("Operation", ["Turning", "Milling", "Drilling / boring", "General workshop"], index=0)
+        production_goal = st.radio("Production priority", ["Balanced", "Tool life", "Throughput"], horizontal=True)
+        st.caption("These details are saved in the report so each run can be traced to its practical use case.")
+
+    # Reference bounds provide context, while each case may select its own safe maximum.
     v_rec_min = float(pairing_info.v_min)
     v_rec_max = float(pairing_info.v_max)
 
+    machine_speed_cap = st.number_input(
+        "Maximum cutting speed for this case (m/min):",
+        min_value=1.0,
+        max_value=10000.0,
+        value=float(max(v_rec_max * 1.8, default_vc, 100.0)),
+        step=10.0,
+        help="Set this to the capability or process limit for the current job. Cutting speed is selectable from 0 to this maximum."
+    )
+
     vc_input = st.slider(
         "Cutting Speed (Vc, m/min):",
-        min_value=max(5.0, float(v_rec_min * 0.4)),
-        max_value=float(v_rec_max * 1.8),
-        value=float(min(max(default_vc, v_rec_min * 0.5), v_rec_max * 1.7)),
+        min_value=0.0,
+        max_value=float(machine_speed_cap),
+        value=float(min(default_vc, machine_speed_cap)),
         step=1.0,
-        help=f"Empirical research range: {v_rec_min:.0f} – {v_rec_max:.0f} m/min"
+        help=f"0 means the machine is stopped. Verified reference range: {v_rec_min:.0f} – {v_rec_max:.0f} m/min."
     )
 
     feed_input = st.slider(
@@ -314,7 +372,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.markdown("### 4. Tool In-Service Monitor")
+    st.markdown("### Tool in-service monitor")
     current_time_input = st.number_input(
         "Current Elapsed Cutting Time (minutes):",
         min_value=0.0,
@@ -338,6 +396,8 @@ pred = predict_tool_wear(
     custom_pairing=pairing_info,
 )
 
+is_idle = vc_input <= 0
+
 opt_report = optimize_tool_wear(
     pairing_key=selected_pairing,
     machine_name=selected_machine,
@@ -351,11 +411,14 @@ opt_report = optimize_tool_wear(
 
 
 # Main Content Area Header
-st.markdown("<div class='main-header'>⚙️ Machining Tool Wear & Life Intelligence Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div class='eyebrow'>Machining intelligence</div><div class='main-header'>Machining tool wear & life</div>", unsafe_allow_html=True)
 st.markdown(
-    f"<div class='sub-header'>Forecasting flank wear ($VB$), Remaining Useful Life (RUL), and physics-driven wear minimization grounded in peer-reviewed <b>Springer IJAMT</b> experimental research.</div>",
+    f"<div class='sub-header'>A concise tool-life forecast using peer-reviewed research and clearly labelled handbook starting guidance.</div>",
     unsafe_allow_html=True
 )
+
+if is_idle:
+    st.info("Machine stopped — set a positive cutting speed to generate an active wear and RUL forecast. The optimisation panel uses the lowest validated speed as a restart reference.")
 
 
 # Key Metrics Row
@@ -415,7 +478,7 @@ with c5:
     st.markdown(
         f"""
         <div class='kpi-card'>
-            <div class='kpi-title'>Springer Confidence</div>
+            <div class='kpi-title'>Data Confidence</div>
             <div class='kpi-value' style='color:{conf_color};'>{pred.confidence_score:.0f}%</div>
             <div class='kpi-subtext' style='color:{conf_color};'>{pred.confidence_label.split('(')[0]}</div>
         </div>
@@ -428,10 +491,10 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # Tab Navigation
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📈 Tool Life & Wear Progression (Graphical)",
-    "🎯 How to Minimize Tool Wear (Optimization)",
-    "📚 Springer Research Reference & Evidence",
-    "📊 Batch Comparison & Data Export"
+    "Wear progression",
+    "Optimisation",
+    "Evidence",
+    "Compare & export"
 ])
 
 
@@ -527,7 +590,7 @@ with tab1:
 
     with col_g1:
         st.subheader("2. Wear Rate vs. Cutting Speed")
-        st.caption(f"Average flank wear rate (µm/min) across the cutting speed range. Higher wear rate = faster tool degradation. Springer verified range shaded green.")
+        st.caption(f"Average flank wear rate (µm/min) across the cutting speed range. Higher wear rate = faster tool degradation. The reference range is shaded green.")
 
         v_sweep = np.linspace(pred.pairing.v_min * 0.7, pred.pairing.v_max * 1.4, 60)
         t_sweep = [
@@ -569,7 +632,7 @@ with tab1:
             fillcolor="#22C55E",
             opacity=0.1,
             line_width=0,
-            annotation_text="Springer Verified Range",
+            annotation_text="Reference Range",
             annotation_position="top left"
         )
 
@@ -795,14 +858,17 @@ with tab2:
 # TAB 3: Springer Research Reference & Evidence
 # ==============================================================================
 with tab3:
-    st.subheader("📚 Peer-Reviewed Springer Literature Grounding")
+    st.subheader("Reference evidence")
     ref = pred.pairing.springer_ref
 
+    source_link = f"[Source]({ref.source_url})" if ref.source_url else ""
+    identifier = f"DOI: [{ref.doi}](https://doi.org/{ref.doi})" if ref.doi else "No DOI — handbook reference"
+    st.caption(ref.evidence_level)
     st.markdown(f"""
-    ### 📖 {ref.title}
+    ### {ref.title}
     **Authors**: {ref.authors}  
     **Journal**: *{ref.journal}* | {ref.volume_issue} ({ref.year})  
-    **DOI**: [{ref.doi}](https://doi.org/{ref.doi})
+    **Reference**: {identifier} {source_link}
     """)
 
     st.markdown("---")
@@ -839,19 +905,19 @@ with tab3:
         {
             "Parameter": "Cutting Speed (Vc)",
             "User Value": f"{pred.vc:.1f} m/min",
-            "Springer Tested Range": f"{pred.pairing.v_min:.1f} – {pred.pairing.v_max:.1f} m/min",
+            "Reference Range": f"{pred.pairing.v_min:.1f} – {pred.pairing.v_max:.1f} m/min",
             "In Boundary": "✅ YES" if (pred.pairing.v_min <= pred.vc <= pred.pairing.v_max) else "⚠️ EXTRAPOLATED"
         },
         {
             "Parameter": "Feed Rate (f)",
             "User Value": f"{pred.feed:.3f} mm/rev",
-            "Springer Tested Range": f"{pred.pairing.f_min:.3f} – {pred.pairing.f_max:.3f} mm/rev",
+            "Reference Range": f"{pred.pairing.f_min:.3f} – {pred.pairing.f_max:.3f} mm/rev",
             "In Boundary": "✅ YES" if (pred.pairing.f_min <= pred.feed <= pred.pairing.f_max) else "⚠️ EXTRAPOLATED"
         },
         {
             "Parameter": "Depth of Cut (ap)",
             "User Value": f"{pred.ap:.2f} mm",
-            "Springer Tested Range": f"{pred.pairing.ap_min:.2f} – {pred.pairing.ap_max:.2f} mm",
+            "Reference Range": f"{pred.pairing.ap_min:.2f} – {pred.pairing.ap_max:.2f} mm",
             "In Boundary": "✅ YES" if (pred.pairing.ap_min <= pred.ap <= pred.pairing.ap_max) else "⚠️ EXTRAPOLATED"
         }
     ])
@@ -927,6 +993,9 @@ with tab4:
     st.markdown("---")
     st.markdown("### 📋 Complete Machining Specification Summary")
     st.json({
+        "case_name": case_name,
+        "operation_type": operation_type,
+        "production_priority": production_goal,
         "workpiece_material": pred.pairing.workpiece_name,
         "workpiece_iso_group": pred.pairing.workpiece_iso,
         "tool_material": pred.pairing.tool_material,

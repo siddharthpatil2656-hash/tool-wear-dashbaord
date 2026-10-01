@@ -106,4 +106,44 @@ INDUSTRY_PRESETS: Dict[str, IndustryPreset] = {
         is_roughing=False,
         target_industry="General Workshop & Maintenance"
     ),
+
+    "Process Plant: AISI 316L Stainless Valve Stem": IndustryPreset(
+        preset_name="Process Plant: AISI 316L Stainless Valve Stem",
+        description="Finish turning of a corrosion-resistant valve stem with a sharp PVD AlCrN carbide insert, steady feed and high-pressure coolant.",
+        pairing_key="AISI 316L Stainless | PVD AlCrN Carbide",
+        machine_name="CNC Slant-Bed Turning Center",
+        coolant_name="High-Pressure Coolant (70-100 bar)",
+        vc=115.0, feed=0.14, ap=0.9, current_time_min=16.0,
+        is_roughing=False, target_industry="Chemical Processing"
+    ),
+
+    "Foundry: GG25 Brake Disc Turning": IndustryPreset(
+        preset_name="Foundry: GG25 Brake Disc Turning",
+        description="Production turning of pearlitic grey-cast-iron brake discs with a CVD carbide insert and controlled dry air extraction.",
+        pairing_key="Grey Cast Iron GG25 | Carbide Insert",
+        machine_name="Heavy-Duty 3-Axis CNC VMC (Box Way)",
+        coolant_name="Dry Machining (Compressed Air Blast)",
+        vc=220.0, feed=0.24, ap=2.0, current_time_min=20.0,
+        is_roughing=True, target_industry="Automotive Braking"
+    ),
+
+    "Precision Workshop: Brass Instrument Fitting": IndustryPreset(
+        preset_name="Precision Workshop: Brass Instrument Fitting",
+        description="Conventional finish turning of free-machining brass using a polished HSS toolbit; a workshop-reference starting case.",
+        pairing_key="Brass C36000 | HSS Toolbit",
+        machine_name="Conventional Manual Lathe / Knee Mill",
+        coolant_name="Minimum Quantity Lubrication (MQL)",
+        vc=70.0, feed=0.12, ap=0.8, current_time_min=8.0,
+        is_roughing=False, target_industry="Instrumentation & General Workshop"
+    ),
+
+    "Toolroom: EN8 Shaft with HSS Toolbit": IndustryPreset(
+        preset_name="Toolroom: EN8 Shaft with HSS Toolbit",
+        description="Conservative conventional-lathe baseline for EN8/1040 shaft work with soluble-oil coolant and a ground HSS toolbit.",
+        pairing_key="Mild Steel (EN8 / 1040) | HSS Toolbit",
+        machine_name="Conventional Manual Lathe / Knee Mill",
+        coolant_name="Standard Flood Emulsion (7-10% oil)",
+        vc=28.0, feed=0.16, ap=1.0, current_time_min=10.0,
+        is_roughing=False, target_industry="Maintenance & Repair Workshop"
+    ),
 }
