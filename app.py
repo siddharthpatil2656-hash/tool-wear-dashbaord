@@ -18,6 +18,8 @@ from springer_database import (
     WORKPIECE_DATABASE,
     TOOL_DATABASE,
     COATING_DATABASE,
+    OPERATION_DATABASE,
+    MILLING_TOOLING_DATABASE,
     synthesize_custom_pairing,
 )
 from tool_physics import (
@@ -148,6 +150,8 @@ with st.sidebar:
         default_ap = float(p_data.ap)
         default_time = float(p_data.current_time_min)
         default_roughing = p_data.is_roughing
+        default_operation = p_data.operation_name
+        default_milling_tooling = p_data.milling_tooling_name
         st.info(f"Loaded preset: **{p_data.target_industry}**\n\n{p_data.description}")
     else:
         default_pairing = "Ti-6Al-4V | PVD TiAlN Carbide"
@@ -158,6 +162,8 @@ with st.sidebar:
         default_ap = 1.20
         default_time = 15.0
         default_roughing = False
+        default_operation = "Turning (OD/ID Continuous Cut)"
+        default_milling_tooling = None
 
     st.markdown("---")
     st.markdown("### Tool & material")
@@ -274,6 +280,37 @@ with st.sidebar:
         index=coolant_index,
     )
 
+    operation_list = list(OPERATION_DATABASE.keys())
+    operation_index = operation_list.index(default_operation) if default_operation in operation_list else 0
+    selected_operation = st.selectbox(
+        "Machining Operation:",
+        operation_list,
+        index=operation_index,
+        help="Operation type scales tool life (chip thinning, interrupted cuts, thermal cycling) and switches the MRR model."
+    )
+    op_info = OPERATION_DATABASE[selected_operation]
+    st.caption(f"🏭 **{op_info.family.capitalize()}** | Life Factor: {op_info.life_multiplier:.2f}x | {op_info.description}")
+
+    selected_milling_tooling = None
+    if op_info.family == "milling":
+        tooling_list = list(MILLING_TOOLING_DATABASE.keys())
+        tooling_index = tooling_list.index(default_milling_tooling) if default_milling_tooling in tooling_list else 0
+        selected_milling_tooling = st.selectbox(
+            "Milling Cutter / Tooling:",
+            tooling_list,
+            index=tooling_index,
+            help="Cutter geometry (teeth, diameter, edge prep) scales tool life and drives the MRR spindle-speed model."
+        )
+        mt_info = MILLING_TOOLING_DATABASE[selected_milling_tooling]
+        st.markdown(
+            f"<span class='springer-badge'>{mt_info.family.replace('_', ' ').title()}</span> "
+            f"<span class='springer-badge'>{mt_info.teeth} Flutes</span> "
+            f"<span class='springer-badge'>Ø {mt_info.diameter_mm:.0f} mm</span> "
+            f"<span class='springer-badge'>Life: {mt_info.life_multiplier:.2f}x</span>",
+            unsafe_allow_html=True
+        )
+        st.caption(f"💡 **Best practice**: {mt_info.best_practices}")
+
     is_roughing = st.checkbox(
         "Heavy Roughing Cut (VB limit = 0.5-0.6 mm)",
         value=default_roughing,
@@ -297,13 +334,13 @@ with st.sidebar:
     )
 
     feed_input = st.slider(
-        "Feed Rate (f, mm/rev or mm/tooth):",
+        f"Feed Rate (f, {op_info.feed_unit}):",
         min_value=max(0.01, float(pairing_info.f_min * 0.5)),
         max_value=float(pairing_info.f_max * 1.8),
         value=float(min(max(default_feed, pairing_info.f_min * 0.6), pairing_info.f_max * 1.6)),
         step=0.01,
         format="%.3f",
-        help=f"Empirical research range: {pairing_info.f_min:.3f} – {pairing_info.f_max:.3f} mm/rev"
+        help=f"Empirical research range: {pairing_info.f_min:.3f} – {pairing_info.f_max:.3f} {op_info.feed_unit}"
     )
 
     ap_input = st.slider(
@@ -338,6 +375,8 @@ pred = predict_tool_wear(
     current_time_min=current_time_input,
     is_roughing=is_roughing,
     custom_pairing=pairing_info,
+    operation_name=selected_operation,
+    milling_tooling_name=selected_milling_tooling,
 )
 
 opt_report = optimize_tool_wear(
@@ -349,6 +388,8 @@ opt_report = optimize_tool_wear(
     current_ap=ap_input,
     is_roughing=is_roughing,
     custom_pairing=pairing_info,
+    operation_name=selected_operation,
+    milling_tooling_name=selected_milling_tooling,
 )
 
 
@@ -533,7 +574,10 @@ with tab1:
 
         v_sweep = np.linspace(pred.pairing.v_min * 0.7, pred.pairing.v_max * 1.4, 60)
         t_sweep = [
-            calculate_tool_life(pred.pairing, pred.machine, pred.coolant, v, pred.feed, pred.ap, pred.is_roughing)
+            calculate_tool_life(
+                pred.pairing, pred.machine, pred.coolant, v, pred.feed, pred.ap, pred.is_roughing,
+                operation_name=pred.operation_name, milling_tooling_name=pred.milling_tooling_name
+            )
             for v in v_sweep
         ]
         # Wear rate = VB_critical / tool_life  (µm/min)
@@ -598,7 +642,8 @@ with tab1:
             for j in range(V_mesh.shape[1]):
                 Z_life[i, j] = calculate_tool_life(
                     pred.pairing, pred.machine, pred.coolant,
-                    V_mesh[i, j], F_mesh[i, j], pred.ap, pred.is_roughing
+                    V_mesh[i, j], F_mesh[i, j], pred.ap, pred.is_roughing,
+                    operation_name=pred.operation_name, milling_tooling_name=pred.milling_tooling_name
                 )
 
         fig_contour = go.Figure(data=go.Contour(
@@ -938,8 +983,10 @@ with tab4:
         "machine_tool_selected": pred.machine_name,
         "machine_rigidity_multiplier": pred.machine.rigidity_factor,
         "coolant_applied": pred.coolant_name,
+        "machining_operation": pred.operation_name,
+        "milling_cutter": pred.milling_tooling_name,
         "cutting_speed_vc_m_min": pred.vc,
-        "feed_rate_mm_rev": pred.feed,
+        "feed_rate_" + op_info.feed_unit.replace("/", "_").replace(" ", "_"): pred.feed,
         "depth_of_cut_ap_mm": pred.ap,
         "roughing_mode": pred.is_roughing,
         "predicted_tool_life_min": pred.tool_life_minutes,

@@ -5,12 +5,14 @@ Material Removal Rate (MRR), along with concrete, actionable engineering recomme
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from springer_database import (
     COOLANT_DATABASE,
     MACHINE_DATABASE,
+    MILLING_TOOLING_DATABASE,
+    OPERATION_DATABASE,
     SPRINGER_DATABASE,
     MaterialToolPairing,
 )
@@ -37,6 +39,8 @@ class WearMinimizationReport:
     current_ap: float
     current_tool_life: float
     current_mrr: float
+    operation_name: Optional[str]
+    milling_tooling_name: Optional[str]
 
     # Optimized strategies
     balanced_strategy: OptimizedParameters   # Maintains MRR, vastly improves life
@@ -60,6 +64,8 @@ def generate_pareto_curve(
     coolant_name: str,
     is_roughing: bool = False,
     steps: int = 40,
+    operation_name: Optional[str] = None,
+    milling_tooling_name: Optional[str] = None,
 ) -> Tuple[List[float], List[float]]:
     """
     Generates Pareto optimal frontier between Tool Life (min) and Material Removal Rate (cm3/min).
@@ -77,15 +83,20 @@ def generate_pareto_curve(
     pareto_life = []
 
     for v in vc_range:
-        life = calculate_tool_life(pairing, machine, coolant, v, nominal_feed, nominal_ap, is_roughing)
-        mrr = calculate_mrr(v, nominal_feed, nominal_ap)
+        life = calculate_tool_life(
+            pairing, machine, coolant, v, nominal_feed, nominal_ap, is_roughing,
+            operation_name=operation_name,
+            milling_tooling_name=milling_tooling_name,
+        )
+        mrr = calculate_mrr(
+            v, nominal_feed, nominal_ap,
+            operation_name=operation_name,
+            milling_tooling_name=milling_tooling_name,
+        )
         pareto_life.append(round(life, 2))
         pareto_mrr.append(round(mrr, 2))
 
     return pareto_mrr, pareto_life
-
-
-from typing import Dict, List, Optional, Tuple
 
 
 def optimize_tool_wear(
@@ -97,6 +108,8 @@ def optimize_tool_wear(
     current_ap: float = 1.0,
     is_roughing: bool = False,
     custom_pairing: Optional[MaterialToolPairing] = None,
+    operation_name: Optional[str] = None,
+    milling_tooling_name: Optional[str] = None,
 ) -> WearMinimizationReport:
     """
     Analyzes current machining parameters and derives mathematically optimized
@@ -113,8 +126,16 @@ def optimize_tool_wear(
     coolant = COOLANT_DATABASE[coolant_name]
 
     # Current baseline
-    base_life = calculate_tool_life(pairing, machine, coolant, current_vc, current_feed, current_ap, is_roughing)
-    base_mrr = calculate_mrr(current_vc, current_feed, current_ap)
+    base_life = calculate_tool_life(
+        pairing, machine, coolant, current_vc, current_feed, current_ap, is_roughing,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
+    base_mrr = calculate_mrr(
+        current_vc, current_feed, current_ap,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
 
     # Strategy 1: Productivity-Neutral Optimization (The "Golden Trade-off")
     # In Taylor's law, Vc has exponent 1/n (~3.5 to 5.0), whereas ap has exponent y/n (~0.7 to 1.1).
@@ -127,8 +148,16 @@ def optimize_tool_wear(
     target_feed = (base_mrr) / (opt_vc_balanced * opt_ap_balanced)
     opt_feed_balanced = min(pairing.f_max, max(pairing.f_min, target_feed))
 
-    life_balanced = calculate_tool_life(pairing, machine, coolant, opt_vc_balanced, opt_feed_balanced, opt_ap_balanced, is_roughing)
-    mrr_balanced = calculate_mrr(opt_vc_balanced, opt_feed_balanced, opt_ap_balanced)
+    life_balanced = calculate_tool_life(
+        pairing, machine, coolant, opt_vc_balanced, opt_feed_balanced, opt_ap_balanced, is_roughing,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
+    mrr_balanced = calculate_mrr(
+        opt_vc_balanced, opt_feed_balanced, opt_ap_balanced,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
 
     balanced_strat = OptimizedParameters(
         vc=round(opt_vc_balanced, 1),
@@ -148,8 +177,16 @@ def optimize_tool_wear(
     opt_feed_maxlife = max(pairing.f_min * 1.1, current_feed * 0.85)
     opt_ap_maxlife = max(pairing.ap_min, current_ap * 0.90)
 
-    life_maxlife = calculate_tool_life(pairing, machine, coolant, opt_vc_maxlife, opt_feed_maxlife, opt_ap_maxlife, is_roughing)
-    mrr_maxlife = calculate_mrr(opt_vc_maxlife, opt_feed_maxlife, opt_ap_maxlife)
+    life_maxlife = calculate_tool_life(
+        pairing, machine, coolant, opt_vc_maxlife, opt_feed_maxlife, opt_ap_maxlife, is_roughing,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
+    mrr_maxlife = calculate_mrr(
+        opt_vc_maxlife, opt_feed_maxlife, opt_ap_maxlife,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
 
     max_life_strat = OptimizedParameters(
         vc=round(opt_vc_maxlife, 1),
@@ -168,8 +205,16 @@ def optimize_tool_wear(
     opt_feed_he = min(pairing.f_max, current_feed * 1.15)
     opt_ap_he = min(pairing.ap_max, current_ap * 1.15)
 
-    life_he = calculate_tool_life(pairing, machine, coolant, opt_vc_he, opt_feed_he, opt_ap_he, is_roughing)
-    mrr_he = calculate_mrr(opt_vc_he, opt_feed_he, opt_ap_he)
+    life_he = calculate_tool_life(
+        pairing, machine, coolant, opt_vc_he, opt_feed_he, opt_ap_he, is_roughing,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
+    mrr_he = calculate_mrr(
+        opt_vc_he, opt_feed_he, opt_ap_he,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
 
     he_strat = OptimizedParameters(
         vc=round(opt_vc_he, 1),
@@ -189,6 +234,23 @@ def optimize_tool_wear(
         f"**Depth-of-Cut Utilization**: Depth of cut ($a_p$) exponent is only {pairing.taylor_y:.2f}. You can safely increase $a_p$ to compensate for lower speeds with minimal impact on flank wear.",
         f"**Minimum Chip Load Warning**: Never drop feed below {pairing.f_min:.3f} mm/rev; insufficient feed causes the cutting edge to rub and burnish rather than shear, accelerating flank wear.",
     ]
+
+    # Operation-specific guidance
+    if operation_name and operation_name in OPERATION_DATABASE:
+        op = OPERATION_DATABASE[operation_name]
+        feed_unit = op.feed_unit
+        cutting_tips.append(f"**Operation Modality ({op.name})**: {op.best_practices}")
+        if op.family == "milling" and milling_tooling_name and milling_tooling_name in MILLING_TOOLING_DATABASE:
+            mt = MILLING_TOOLING_DATABASE[milling_tooling_name]
+            cutting_tips.append(
+                f"**Cutter Engagement ({mt.name.split(',')[0]})**: {mt.teeth} cutting edges, "
+                f"{mt.diameter_mm:.0f} mm diameter. {mt.best_practices}"
+            )
+            if op.ae_fraction_of_d <= 0.15:
+                cutting_tips.append(
+                    f"**Chip-Thinning Compensation**: At $a_e = {op.ae_fraction_of_d*100:.0f}\\%$ of diameter, apply the feed-correction "
+                    "$f_z' = f_z \\cdot (D/(2\\cdot a_e))$ to maintain true chip thickness and avoid rubbing."
+                )
 
     # Tooling & coating advice based on ISO group
     tooling_tips = []
@@ -229,7 +291,11 @@ def optimize_tool_wear(
         coolant_tips.append("⚠️ **CRITICAL WARNING**: Flood coolant on Ceramic inserts causes cyclical thermal shocks leading to rapid comb cracking and catastrophic edge fracture! Switch to Dry Machining or Air Blast immediately.")
 
     # Pareto curve
-    pareto_mrr, pareto_life = generate_pareto_curve(pairing, machine_name, coolant_name, is_roughing)
+    pareto_mrr, pareto_life = generate_pareto_curve(
+        pairing, machine_name, coolant_name, is_roughing,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+    )
 
     return WearMinimizationReport(
         current_vc=current_vc,
@@ -237,6 +303,8 @@ def optimize_tool_wear(
         current_ap=current_ap,
         current_tool_life=round(base_life, 1),
         current_mrr=round(base_mrr, 2),
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
         balanced_strategy=balanced_strat,
         max_life_strategy=max_life_strat,
         high_efficiency_strategy=he_strat,

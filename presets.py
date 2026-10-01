@@ -4,7 +4,7 @@ Allows 1-click loading of realistic industrial machining scenarios into the dash
 """
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 
 @dataclass
@@ -20,6 +20,8 @@ class IndustryPreset:
     current_time_min: float
     is_roughing: bool
     target_industry: str
+    operation_name: str = "Turning (OD/ID Continuous Cut)"
+    milling_tooling_name: Optional[str] = None
 
 
 INDUSTRY_PRESETS: Dict[str, IndustryPreset] = {
@@ -34,7 +36,9 @@ INDUSTRY_PRESETS: Dict[str, IndustryPreset] = {
         ap=1.2,
         current_time_min=18.0,
         is_roughing=False,
-        target_industry="Aerospace & Defense"
+        target_industry="Aerospace & Defense",
+        operation_name="End Milling / Shoulder Milling",
+        milling_tooling_name="Solid Carbide Square End Mill (4-Flute)"
     ),
 
     "Energy & Turbines: Inconel 718 High-Speed Gas Turbine Disk": IndustryPreset(
@@ -62,7 +66,9 @@ INDUSTRY_PRESETS: Dict[str, IndustryPreset] = {
         ap=1.5,
         current_time_min=45.0,
         is_roughing=False,
-        target_industry="Automotive Powertrain"
+        target_industry="Automotive Powertrain",
+        operation_name="Face Milling (Indexable 45°)",
+        milling_tooling_name="PCD-Tipped End Mill (Diamond, 2-Flute)"
     ),
 
     "Heavy Machinery: AISI 1045 Drive Shaft Roughing": IndustryPreset(
