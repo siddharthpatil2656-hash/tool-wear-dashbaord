@@ -43,10 +43,15 @@ Predictions and physics models are **grounded in peer-reviewed experimental lite
 ## 🚀 Quick Start (Windows)
 
 ### Option 1: Double-Click Launcher
-Simply double-click the included batch file:
+From the updated project folder, double-click the included batch file. It starts
+the `app.py` beside the launcher and prints the project folder it is using:
 ```cmd
 run_dashboard.bat
 ```
+
+To use recent GitHub changes in a local clone, check out the branch containing
+those changes before starting the launcher. The dashboard sidebar shows the
+full path of the `app.py` currently running.
 
 ### Option 2: Command Line
 Open PowerShell or Command Prompt in this folder:

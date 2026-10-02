@@ -12,6 +12,7 @@ import plotly.express as px
 from datetime import datetime
 from io import BytesIO
 import re
+from pathlib import Path
 from types import SimpleNamespace
 from xml.sax.saxutils import escape
 
@@ -918,6 +919,7 @@ with st.sidebar:
         help="Enter current machining time on this tool edge to estimate Remaining Useful Life (RUL).",
         **_init("time_input", value=float(default_time)),
     )
+    st.caption(f"Running app file: `{Path(__file__).resolve()}`")
 
 
 # Perform Predictions & Optimization
