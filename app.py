@@ -10,23 +10,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
-from io import BytesIO
-import re
 from types import SimpleNamespace
-from xml.sax.saxutils import escape
-
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import inch
-from reportlab.platypus import (
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
 
 from springer_database import (
     SPRINGER_DATABASE,
@@ -56,7 +40,6 @@ from presets import INDUSTRY_PRESETS
 NO_SELECTION = "-- No Selection --"
 NEUTRAL_MACHINE_KEY = "Unspecified Machine (Neutral Rigidity 1.0x)"
 NEUTRAL_COOLANT_KEY = "No Selection (Neutral 1.0x)"
-RESET_OPTION = "Reset to default"
 
 
 # Page configuration
@@ -159,200 +142,6 @@ st.markdown("""
 CUSTOM_PARAMS = "-- Custom User Parameters --"
 
 
-def _reset_dropdown(key, default_value):
-    """Restore one selectbox to its current dashboard default."""
-    if st.session_state.get(key) == RESET_OPTION:
-        st.session_state[key] = default_value
-
-
-def _on_preset_change():
-    _reset_dropdown("preset_choice", CUSTOM_PARAMS)
-    _apply_industry_preset()
-
-
-def _on_machine_change(default_machine):
-    _reset_dropdown("machine_choice", default_machine)
-    _sync_dependent_widgets()
-
-
-def _pdf_text(value):
-    """Convert dashboard text to characters supported by ReportLab's base font."""
-    substitutions = {
-        "µ": "u",
-        "³": "3",
-        "–": "-",
-        "—": "-",
-        "×": "x",
-        "°": " deg",
-        "₂": "2",
-        "₃": "3",
-        "α": "alpha",
-        "β": "beta",
-        "γ": "gamma",
-        "→": "->",
-        "≥": ">=",
-        "≤": "<=",
-        "≈": "~",
-    }
-    text = str(value)
-    for source, replacement in substitutions.items():
-        text = text.replace(source, replacement)
-    return text.encode("cp1252", errors="replace").decode("cp1252")
-
-
-def _valid_doi(doi):
-    return bool(re.fullmatch(r"10\.\d{4,9}/\S+", str(doi or "")))
-
-
-def _build_pdf_report(summary_df, prediction):
-    """Create a compact, portrait-oriented PDF report for the current forecast."""
-    output = BytesIO()
-    document = SimpleDocTemplate(
-        output,
-        pagesize=letter,
-        rightMargin=0.55 * inch,
-        leftMargin=0.55 * inch,
-        topMargin=0.55 * inch,
-        bottomMargin=0.55 * inch,
-        title="Machining Tool Wear Forecast",
-        author="Machining Tool Wear Dashboard",
-    )
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        name="ReportTitle",
-        parent=styles["Title"],
-        alignment=TA_CENTER,
-        textColor=colors.HexColor("#0F172A"),
-        fontSize=17,
-        leading=21,
-        spaceAfter=8,
-    ))
-    styles.add(ParagraphStyle(
-        name="ReportSection",
-        parent=styles["Heading2"],
-        textColor=colors.HexColor("#1D4ED8"),
-        fontSize=11,
-        leading=14,
-        spaceBefore=9,
-        spaceAfter=5,
-    ))
-    styles.add(ParagraphStyle(
-        name="ReportBody",
-        parent=styles["BodyText"],
-        fontSize=8,
-        leading=10,
-        spaceAfter=3,
-    ))
-    styles.add(ParagraphStyle(
-        name="ReportSmall",
-        parent=styles["BodyText"],
-        fontSize=6.5,
-        leading=8,
-    ))
-    styles.add(ParagraphStyle(
-        name="ReportHeader",
-        parent=styles["BodyText"],
-        fontSize=6.5,
-        leading=8,
-        textColor=colors.white,
-    ))
-
-    def paragraph(value, style="ReportBody"):
-        return Paragraph(escape(_pdf_text(value)), styles[style])
-
-    story = [
-        Paragraph("Machining Tool Wear Forecast", styles["ReportTitle"]),
-        paragraph(f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}"),
-        Paragraph("Machining setup and current forecast", styles["ReportSection"]),
-    ]
-
-    setup_rows = [
-        ["Workpiece", _pdf_text(prediction.pairing.workpiece_name)],
-        ["Tool / coating", _pdf_text(f"{prediction.pairing.tool_material} / {prediction.pairing.coating}")],
-        ["Machine", _pdf_text(prediction.machine_name)],
-        ["Operation", _pdf_text(prediction.operation_name or "Not specified")],
-        ["Coolant", _pdf_text(prediction.coolant_name)],
-        ["Cutting parameters", _pdf_text(
-            f"Vc {prediction.vc:.1f} m/min; feed {prediction.feed:.3f}; "
-            f"ap {prediction.ap:.2f} mm; overhang L/D {prediction.overhang_ratio:.1f}"
-        )],
-        ["Predicted tool life", f"{prediction.tool_life_minutes:.1f} min"],
-        ["Remaining useful life", f"{prediction.rul_minutes:.1f} min ({prediction.rul_percentage:.0f}%)"],
-        ["Current flank wear", f"{prediction.current_vb_mm:.3f} mm (limit {prediction.vb_threshold_mm:.2f} mm)"],
-        ["Material removal rate", f"{prediction.mrr_cm3_min:.2f} cm3/min"],
-        ["Prediction confidence", f"{prediction.confidence_score:.0f}% - {_pdf_text(prediction.confidence_label)}"],
-    ]
-    setup_table = Table(
-        [[paragraph(label), paragraph(value)] for label, value in setup_rows],
-        colWidths=[1.45 * inch, 5.45 * inch],
-        hAlign="LEFT",
-    )
-    setup_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#EFF6FF")),
-        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5E1")),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story.extend([setup_table, Paragraph("Scenario comparison", styles["ReportSection"])])
-
-    headers = [paragraph(column, "ReportHeader") for column in summary_df.columns]
-    comparison_rows = [headers]
-    for row in summary_df.itertuples(index=False, name=None):
-        comparison_rows.append([paragraph(value, "ReportSmall") for value in row])
-    comparison_table = Table(
-        comparison_rows,
-        colWidths=[1.42 * inch, 0.72 * inch, 0.58 * inch, 0.55 * inch,
-                   0.70 * inch, 0.64 * inch, 0.70 * inch, 0.78 * inch],
-        repeatRows=1,
-        hAlign="LEFT",
-    )
-    comparison_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E3A8A")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F8FAFC")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F1F5F9")]),
-        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5E1")),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story.extend([comparison_table, Paragraph("Evidence and references", styles["ReportSection"])])
-
-    reference = prediction.pairing.springer_ref
-    source_text = (
-        f"{reference.authors} ({reference.year}). {reference.title}. "
-        f"{reference.journal}, {reference.volume_issue}."
-    )
-    if _valid_doi(reference.doi) and "empirical-synthesis" not in reference.doi:
-        source_text += f" DOI: {reference.doi}."
-    story.append(paragraph(f"Database evidence ({reference.evidence_level}): {source_text}"))
-    story.append(paragraph(
-        "Standards reference: ISO 3685:1993, Tool-life testing with single-point turning tools. "
-        "Used as a tool-life and flank-wear test-method reference; it is not the source of the "
-        "pairing-specific Taylor constants."
-    ))
-    story.append(paragraph(
-        "Standards reference: ASME B94.55M-1985, Tool Life Testing with Single-Point Turning Tools. "
-        "Consult the applicable published edition and verify the standard's scope for the operation."
-    ))
-    story.extend([
-        Spacer(1, 5),
-        paragraph(
-            "Engineering note: model outputs are estimates based on the selected database record and "
-            "physics model. Confirm the cited publication/handbook and validate recommendations with "
-            "machine-specific trials before production use.",
-            "ReportSmall",
-        ),
-    ])
-    document.build(story)
-    return output.getvalue()
-
-
 def _init(key, **defaults):
     """Pass widget defaults only on the first render, so preset-driven session
     state never collides with a declared default (avoids Streamlit warnings)."""
@@ -442,12 +231,7 @@ with st.sidebar:
     # 1-Click Industry Presets
     st.markdown("### ⚡ Quick-Load Presets")
     preset_keys = [CUSTOM_PARAMS] + list(INDUSTRY_PRESETS.keys())
-    selected_preset = st.selectbox(
-        "Load Industry Case Study:",
-        preset_keys + [RESET_OPTION],
-        key="preset_choice",
-        on_change=_on_preset_change,
-    )
+    selected_preset = st.selectbox("Load Industry Case Study:", preset_keys, key="preset_choice", on_change=_apply_industry_preset)
 
     # Defaults
     if selected_preset != "-- Custom User Parameters --":
@@ -495,13 +279,7 @@ with st.sidebar:
     if "Independent" in material_mode:
         st.markdown("#### Workpiece Material")
         wp_keys = [NO_SELECTION] + list(WORKPIECE_DATABASE.keys())
-        selected_wp_key = st.selectbox(
-            "Select Workpiece Material:",
-            wp_keys + [RESET_OPTION],
-            index=1,
-            key="wp_choice",
-            on_change=lambda: _reset_dropdown("wp_choice", wp_keys[1]),
-        )
+        selected_wp_key = st.selectbox("Select Workpiece Material:", wp_keys, index=1, key="wp_choice")
         if selected_wp_key == NO_SELECTION:
             st.warning("⚠️ No selection has been made for the workpiece material — please select a material to generate predictions.")
             st.stop()
@@ -516,13 +294,7 @@ with st.sidebar:
 
         st.markdown("#### Tool Material & Coating")
         tool_keys = [NO_SELECTION] + list(TOOL_DATABASE.keys())
-        selected_tool_key = st.selectbox(
-            "Select Tool Material (Substrate):",
-            tool_keys + [RESET_OPTION],
-            index=1,
-            key="tool_choice",
-            on_change=lambda: _reset_dropdown("tool_choice", tool_keys[1]),
-        )
+        selected_tool_key = st.selectbox("Select Tool Material (Substrate):", tool_keys, index=1, key="tool_choice")
         if selected_tool_key == NO_SELECTION:
             st.warning("⚠️ No selection has been made for the tool material — please select a substrate to generate predictions.")
             st.stop()
@@ -536,13 +308,7 @@ with st.sidebar:
         )
 
         coating_keys = [NO_SELECTION] + list(COATING_DATABASE.keys())
-        selected_coating_key = st.selectbox(
-            "Select Tool Coating / Prep:",
-            coating_keys + [RESET_OPTION],
-            index=1,
-            key="coating_choice",
-            on_change=lambda: _reset_dropdown("coating_choice", coating_keys[1]),
-        )
+        selected_coating_key = st.selectbox("Select Tool Coating / Prep:", coating_keys, index=1, key="coating_choice")
         if selected_coating_key == NO_SELECTION:
             st.warning("⚠️ No selection has been made for the tool coating — please select a coating/preparation to generate predictions.")
             st.stop()
@@ -591,9 +357,8 @@ with st.sidebar:
         pairing_index = (pairing_list.index(default_pairing) + 1) if default_pairing in pairing_list else 1
         pairing_choice = st.selectbox(
             "Curated Workpiece & Tool Combination:",
-            pairing_display + [RESET_OPTION],
+            pairing_display,
             key="pairing_choice",
-            on_change=lambda: _reset_dropdown("pairing_choice", default_pairing if default_pairing in pairing_list else pairing_list[0]),
             help="Calibrated empirical pairings from peer-reviewed Springer IJAMT research studies.",
             **_init("pairing_choice", index=pairing_index),
         )
@@ -619,9 +384,9 @@ with st.sidebar:
     machine_index = (machine_list.index(default_machine) + 1) if default_machine in machine_list else 1
     machine_choice = st.selectbox(
         "Which Machine is Used for Machining?",
-        machine_display + [RESET_OPTION],
+        machine_display,
         key="machine_choice",
-        on_change=lambda: _on_machine_change(default_machine if default_machine in machine_list else machine_list[0]),
+        on_change=_sync_dependent_widgets,
         help="Machine rigidity directly scales dynamic chatter vibration and tool degradation rate. The machine family (milling / turning / universal) determines which operations, cutters and holders are available.",
         **_init("machine_choice", index=machine_index),
     )
@@ -649,12 +414,8 @@ with st.sidebar:
     operation_index = (operation_list.index(default_operation) + 1) if default_operation in operation_list else 1
     operation_choice = st.selectbox(
         "Machining Operation:",
-        operation_display + [RESET_OPTION],
+        operation_display,
         key="operation_choice",
-        on_change=lambda: _reset_dropdown(
-            "operation_choice",
-            default_operation if default_operation in operation_list else operation_list[0],
-        ),
         help="Operation type scales tool life (chip thinning, interrupted cuts, thermal cycling) and switches the MRR model.",
         **_init("operation_choice", index=operation_index),
     )
@@ -678,12 +439,8 @@ with st.sidebar:
         tooling_index = (tooling_list.index(default_milling_tooling) + 1) if default_milling_tooling in tooling_list else 1
         tooling_choice = st.selectbox(
             "Milling Cutter / Tooling:",
-            tooling_display + [RESET_OPTION],
+            tooling_display,
             key="tooling_choice",
-            on_change=lambda: _reset_dropdown(
-                "tooling_choice",
-                default_milling_tooling if default_milling_tooling in tooling_list else tooling_list[0],
-            ),
             help="Cutter geometry (teeth, diameter, edge prep) scales tool life and drives the MRR spindle-speed model.",
             **_init("tooling_choice", index=tooling_index),
         )
@@ -715,12 +472,8 @@ with st.sidebar:
     holder_index = (holder_keys.index(default_holder) + 1) if default_holder in holder_keys else 1
     holder_choice = st.selectbox(
         "Tool Holder / Chucking System:",
-        holder_display + [RESET_OPTION],
+        holder_display,
         key="holder_choice",
-        on_change=lambda: _reset_dropdown(
-            "holder_choice",
-            default_holder if default_holder in holder_keys else holder_keys[0],
-        ),
         help="Holder rigidity and runout accuracy scale tool life. Dampened anti-vibration holders halve the overhang penalty.",
         **_init("holder_choice", index=holder_index),
     )
@@ -749,12 +502,8 @@ with st.sidebar:
     coolant_index = (coolant_list.index(default_coolant) + 1) if default_coolant in coolant_list else 1
     coolant_choice = st.selectbox(
         "Cooling / Lubrication Method:",
-        coolant_display + [RESET_OPTION],
+        coolant_display,
         key="coolant_choice",
-        on_change=lambda: _reset_dropdown(
-            "coolant_choice",
-            default_coolant if default_coolant in coolant_list else coolant_list[0],
-        ),
         help="Select 'No Coolant (Bare Dry Cut)' to simulate dry machining — tool life is derated and thermal-risk warnings appear automatically.",
         **_init("coolant_choice", index=coolant_index),
     )
@@ -1406,38 +1155,15 @@ with tab2:
 with tab3:
     st.subheader("📚 Springer Research & Handbook Reference")
     ref = pred.pairing.springer_ref
-    if "Peer-reviewed" in ref.evidence_level:
-        range_label = "Springer Tested Range"
-    elif "handbook" in ref.evidence_level.lower():
-        range_label = "Handbook Starting Range"
-    else:
-        range_label = "Database Model Range"
-    is_synthesized_reference = "empirical-synthesis" in ref.doi or "synthesized" in ref.title.lower()
+    range_label = "Springer Tested Range" if "Peer-reviewed" in ref.evidence_level else "Handbook Starting Range"
     st.caption(ref.evidence_level)
 
-    if is_synthesized_reference:
-        st.markdown("### 📖 Composite model evidence")
-        st.info(
-            "This independent material/tool/coating combination is synthesized by the dashboard; "
-            "it is not a single Springer experiment. Its estimated parameters are derived from "
-            "the selected material/tool records and the physics model, so no study-specific DOI "
-            "is asserted for this combination."
-        )
-        st.markdown(
-            f"**Model record**: {ref.title}  \n"
-            f"**Evidence classification**: {ref.evidence_level}"
-        )
-    else:
-        citation = (
-            f"### 📖 {ref.title}\n"
-            f"**Authors**: {ref.authors}  \n"
-            f"**Journal / publisher**: *{ref.journal}* | {ref.volume_issue} ({ref.year})"
-        )
-        if _valid_doi(ref.doi):
-            citation += f"  \n**DOI**: [{ref.doi}](https://doi.org/{ref.doi})"
-        else:
-            citation += "  \n**DOI**: No valid DOI recorded for this database entry."
-        st.markdown(citation)
+    st.markdown(f"""
+    ### 📖 {ref.title}
+    **Authors**: {ref.authors}  
+    **Journal**: *{ref.journal}* | {ref.volume_issue} ({ref.year})  
+    **DOI**: [{ref.doi}](https://doi.org/{ref.doi})
+    """)
 
     st.markdown("---")
 
@@ -1462,23 +1188,6 @@ with tab3:
         - **Feed Exponent ($x$)**: `{pred.pairing.taylor_x:.3f}`
         - **Depth Exponent ($y$)**: `{pred.pairing.taylor_y:.3f}`
         """)
-
-    st.markdown("---")
-    st.subheader("Standards and handbook methodology")
-    st.markdown(
-        "- **ISO 3685:1993**, *Tool-life testing with single-point turning tools* — "
-        "reference for tool-life testing and flank-wear criteria in its stated scope.\n"
-        "- **ASME B94.55M-1985**, *Tool Life Testing with Single-Point Turning Tools* — "
-        "related tool-life test-method reference.\n"
-        "- **Springer handbook starting guidance**, when identified as the selected evidence "
-        "level above — treat its parameter window as a starting point and validate it on the machine."
-    )
-    st.warning(
-        "The standards describe test methods and criteria; they do not supply this pairing's "
-        "Taylor constants. Those are taken from the selected database record or synthesized "
-        "model. Check the published standard/handbook edition and applicability before using "
-        "these estimates for production decisions."
-    )
 
     st.markdown("---")
     st.subheader("Experimental Validity Envelope & Confidence Audit")
@@ -1573,13 +1282,6 @@ with tab4:
         data=csv_data,
         file_name=f"tool_wear_forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime="text/csv"
-    )
-    pdf_data = _build_pdf_report(summary_df, pred)
-    st.download_button(
-        label="📄 Download Portrait PDF Report",
-        data=pdf_data,
-        file_name=f"tool_wear_forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-        mime="application/pdf",
     )
 
     st.markdown("---")
