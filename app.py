@@ -437,8 +437,8 @@ def _apply_industry_preset():
 
 # Sidebar: Presets and User Inputs
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/cnc-machine.png", width=64)
     st.markdown("## Machining Setup")
+    st.caption("Runs locally; no internet is needed for dashboard calculations.")
 
     # 1-Click Industry Presets
     st.markdown("### ⚡ Quick-Load Presets")

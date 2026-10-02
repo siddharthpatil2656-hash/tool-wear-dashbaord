@@ -53,6 +53,18 @@ To use recent GitHub changes in a local clone, check out the branch containing
 those changes before starting the launcher. The dashboard sidebar shows the
 full path of the `app.py` currently running.
 
+### Run without internet
+The dashboard calculations and reference data run locally. While online for
+the initial setup, install Python and the required packages once:
+```powershell
+python -m pip install -r requirements.txt
+```
+After installation, disconnect from the internet and double-click
+`run_dashboard.bat`, then open `http://localhost:8501` or the
+`Dashboard (offline).url` shortcut. Keep the laptop on and the launcher
+terminal open while using the dashboard. DOI links to external publications
+require internet, but the dashboard, CSV export, and PDF report work offline.
+
 ### Option 2: Command Line
 Open PowerShell or Command Prompt in this folder:
 ```powershell
