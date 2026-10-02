@@ -2,7 +2,7 @@
 Machining Physics & Tool Wear Calculation Engine.
 Implements Extended Taylor's Tool Life Equation, 3-Stage Flank Wear (VB) Progression,
 Machine Dynamic Rigidity Factor, and Material Removal Rate (MRR).
-Calibrated against Springer IJAMT empirical data.
+Uses bundled model defaults or Taylor coefficients fitted from matched measured trials.
 """
 
 import math
@@ -61,7 +61,7 @@ def evaluate_confidence(
 ) -> Tuple[float, str, List[str]]:
     """
     Evaluates whether the user's cutting parameters fall within the verified
-    empirical domain of the Springer research publication.
+    parameter domain of the active model record or measured-trial calibration.
     """
     score = 100.0
     notes = []
@@ -70,11 +70,11 @@ def evaluate_confidence(
     if vc < pairing.v_min:
         penalty = min(35.0, ((pairing.v_min - vc) / pairing.v_min) * 50.0)
         score -= penalty
-        notes.append(f"Cutting speed ({vc:.1f} m/min) is below Springer study baseline ({pairing.v_min:.1f} m/min). Risk of unstable Built-Up Edge (BUE).")
+        notes.append(f"Cutting speed ({vc:.1f} m/min) is below the active model's supported range ({pairing.v_min:.1f} m/min).")
     elif vc > pairing.v_max:
         penalty = min(40.0, ((vc - pairing.v_max) / pairing.v_max) * 60.0)
         score -= penalty
-        notes.append(f"Cutting speed ({vc:.1f} m/min) exceeds Springer tested limit ({pairing.v_max:.1f} m/min). High thermal softening risk.")
+        notes.append(f"Cutting speed ({vc:.1f} m/min) exceeds the active model's supported range ({pairing.v_max:.1f} m/min).")
 
     # Feed check
     if feed < pairing.f_min:
@@ -84,7 +84,7 @@ def evaluate_confidence(
     elif feed > pairing.f_max:
         penalty = min(30.0, ((feed - pairing.f_max) / pairing.f_max) * 50.0)
         score -= penalty
-        notes.append(f"Feed ({feed:.3f} mm/rev) exceeds Springer tested range ({pairing.f_max:.3f} mm/rev). Increased risk of insert chipping.")
+        notes.append(f"Feed ({feed:.3f} mm/rev) exceeds the active model's supported range ({pairing.f_max:.3f} mm/rev).")
 
     # Depth of cut check
     if ap < pairing.ap_min:
@@ -99,14 +99,14 @@ def evaluate_confidence(
     score = max(10.0, min(100.0, score))
 
     if score >= 85:
-        label = "High Confidence (Empirically Verified)"
+        label = "Within Model Range (Heuristic)"
     elif score >= 60:
-        label = "Moderate Confidence (Near Research Boundary)"
+        label = "Near Model Range (Heuristic)"
     else:
-        label = "Extrapolated (Outside Empirical Literature Range)"
+        label = "Extrapolated (Outside Model Range)"
 
     if not notes:
-        notes.append("All machining parameters are strictly within the experimental window verified by the Springer publication.")
+        notes.append("All machining parameters are within the active model's parameter range; this alone does not guarantee prediction accuracy.")
 
     return score, label, notes
 
@@ -160,6 +160,33 @@ def calculate_tool_life(
 
     t_nominal = ratio ** (1.0 / pairing.taylor_n)
 
+    life_multiplier = calculate_tool_life_multiplier(
+        pairing,
+        machine,
+        coolant,
+        is_roughing=is_roughing,
+        operation_name=operation_name,
+        milling_tooling_name=milling_tooling_name,
+        holder_name=holder_name,
+        overhang_ratio=overhang_ratio,
+    )
+    t_effective = t_nominal * life_multiplier
+
+    # Floor at 0.5 minutes, ceiling at 2000 minutes
+    return float(np.clip(t_effective, 0.5, 2000.0))
+
+
+def calculate_tool_life_multiplier(
+    pairing: MaterialToolPairing,
+    machine: MachineCharacteristics,
+    coolant: CoolantCharacteristics,
+    is_roughing: bool = False,
+    operation_name: Optional[str] = None,
+    milling_tooling_name: Optional[str] = None,
+    holder_name: Optional[str] = None,
+    overhang_ratio: Optional[float] = None,
+) -> float:
+    """Return setup-specific life factors, excluding Taylor cutting parameters."""
     # Coolant synergy adjustments (ceramic dry/flood specials):
     coolant_factor = effective_coolant_factor(pairing, coolant)
 
@@ -196,9 +223,8 @@ def calculate_tool_life(
         derate_rate = 0.035 if holder_is_dampened else 0.07
         overhang_factor = max(0.55, 1.0 - derate_rate * (overhang_ratio - 3.0))
 
-    t_effective = (
-        t_nominal
-        * machine.rigidity_factor
+    return float(
+        machine.rigidity_factor
         * coolant_factor
         * roughing_factor
         * operation_factor
@@ -206,9 +232,6 @@ def calculate_tool_life(
         * holder_factor
         * overhang_factor
     )
-
-    # Floor at 0.5 minutes, ceiling at 2000 minutes
-    return float(np.clip(t_effective, 0.5, 2000.0))
 
 
 def compute_flank_wear_curve(
@@ -380,7 +403,7 @@ def predict_tool_wear(
     else:
         rul_status = "Critical: End of Tool Life (Replace Insert Now)"
 
-    # 4. Confidence scoring against Springer literature
+    # 4. Heuristic check against the active parameter range
     conf_score, conf_label, conf_notes = evaluate_confidence(pairing, vc, feed, ap)
 
     # 5. Operation-specific physics warnings

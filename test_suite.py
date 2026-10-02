@@ -1,6 +1,6 @@
 """
 Automated Test Suite for Tool Wear Forecasting Engine.
-Tests physics calculations, boundary conditions, Springer database integrity,
+Tests physics calculations, boundary conditions, bundled model record integrity,
 wear curves, and optimization algorithms.
 """
 
@@ -20,8 +20,8 @@ def run_tests():
     passed = 0
     total = 0
 
-    # Test 1: Verify all Springer pairings have valid data
-    print("\n[Test 1] Validating Springer Empirical Database entries...")
+    # Test 1: Verify bundled model records have usable coefficients and metadata
+    print("\n[Test 1] Validating bundled pairing model records...")
     for key, pairing in SPRINGER_DATABASE.items():
         total += 1
         assert pairing.taylor_C > 0, f"Invalid C for {key}"
@@ -31,7 +31,7 @@ def run_tests():
         assert pairing.ap_min < pairing.ap_max, f"Invalid ap bounds for {key}"
         assert pairing.springer_ref.doi, f"Missing DOI for {key}"
         passed += 1
-    print(f" -> {passed}/{total} Springer pairings verified successfully.")
+    print(f" -> {passed}/{total} bundled pairing records have usable model inputs.")
 
     # Test 2: Verify Machine and Coolant databases
     print("\n[Test 2] Validating Machine and Coolant models...")
@@ -104,8 +104,24 @@ def run_tests():
     assert opt.max_life_strategy.tool_life_gain_pct > opt.balanced_strategy.tool_life_gain_pct, "Max life must have higher life gain"
     assert len(opt.pareto_mrr) > 10, "Pareto curve must have sufficient points"
     assert len(opt.cutting_parameter_tips) >= 2, "Must provide cutting tips"
+    assert len(opt.productivity_frontier_options) == 3, (
+        "Optimizer must return feasible low, current, and higher-productivity plans"
+    )
+    for option in opt.productivity_frontier_options:
+        target_mrr = opt.current_mrr * option["target_productivity_pct"] / 100.0
+        assert abs(option["mrr_cm3_min"] - target_mrr) / target_mrr < 1e-9
+        assert option["tool_life_min"] > 0
+        assert 40.0 <= option["vc"] <= 110.0
+        assert 0.06 <= option["feed"] <= 0.25
+        assert 0.3 <= option["ap"] <= 2.5
+        assert option["mrr_error_pct"] <= 1.0
+        assert option["recheck_error_pct"] <= 0.1
+        assert np.isfinite(option["local_sensitivity_pct"])
     passed += 1
-    print(f" -> Optimizer successfully generated balanced strategy (+{opt.balanced_strategy.tool_life_gain_pct:.1f}% life) and Pareto curve.")
+    print(
+        f" -> Optimizer generated balanced strategy (+{opt.balanced_strategy.tool_life_gain_pct:.1f}% life), "
+        "Pareto curve, and three bounded productivity-target plans."
+    )
 
     # Test 6: Verify all presets load and compute cleanly
     print("\n[Test 6] Testing Industry Case Study Presets...")

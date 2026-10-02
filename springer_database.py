@@ -1,13 +1,8 @@
 """
-Multi-Journal Empirical Database for Tool Life & Tool Wear Prediction.
-Taylor constants calibrated from peer-reviewed papers in:
-  - The International Journal of Advanced Manufacturing Technology (IJAMT / Springer)
-  - CIRP Annals – Manufacturing Technology (Elsevier / CIRP)
-  - International Journal of Machine Tools & Manufacture (IJMTM / Elsevier)
-  - Wear – An International Journal on the Science & Technology of Friction (Elsevier)
-  - Journal of Manufacturing Science and Engineering (JMSE / ASME)
-  - Tribology International (Elsevier)
-  - Journal of Cleaner Production (Elsevier)
+Bundled workpiece, tool, machine, coolant, and Taylor-model defaults.
+
+Reference metadata is included for discovery, but this module does not contain
+publisher datasets and its citations must be verified against publisher records.
 """
 
 from __future__ import annotations
@@ -864,15 +859,16 @@ def synthesize_custom_pairing(
         k_runin=0.15,
         beta_tertiary=0.035,
         springer_ref=SpringerReference(
-            title=f"Machining Performance & Empirical Tool Wear Modeling of {wp.name} with {tool.name}",
-            authors="Calibrated from Springer IJAMT Machining Reference Datasets",
-            journal="The International Journal of Advanced Manufacturing Technology (Springer Nature)",
-            year=2022,
-            doi="10.1007/s00170-empirical-synthesis",
-            volume_issue="Composite Empirical Synthesis Model",
-            experimental_setup=f"Cutting {wp.name} using {tool.name} with {coating.name}. Calibrated via extended Taylor modeling and thermal-abrasive balance.",
+            title=f"Dashboard-generated composite model for {wp.name} with {tool.name}",
+            authors="Dashboard model synthesis",
+            journal="Local physics model (not a publication)",
+            year=0,
+            doi="model:composite",
+            volume_issue="Synthesized material/tool/coating combination",
+            experimental_setup=f"Model estimate for {wp.name} using {tool.name} with {coating.name}; no single matching experiment is represented.",
             observed_wear_mechanisms=wp.primary_wear_mode,
-            key_findings=f"Taylor exponent n={taylor_n:.3f} governs speed sensitivity. Tool thermal limit is {tool.max_temp_c:.0f}°C."
+            key_findings=f"Synthesized Taylor exponent n={taylor_n:.3f}; validate against measured trials.",
+            evidence_level="Dashboard-generated model synthesis — not a publication",
         )
     )
 
@@ -880,7 +876,7 @@ def synthesize_custom_pairing(
 
 
 
-# Comprehensive Springer Database
+# Bundled pairing model records and associated, unverified citation metadata.
 SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
     # 1. Titanium Alloy (Ti-6Al-4V) - Aerospace Grade
     "Ti-6Al-4V | PVD TiAlN Carbide": MaterialToolPairing(
