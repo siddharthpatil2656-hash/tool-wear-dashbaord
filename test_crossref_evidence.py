@@ -88,6 +88,35 @@ class CrossrefEvidenceTests(unittest.TestCase):
         parameters = parse_qs(urlparse(mocked.call_args.args[0].full_url).query)
         self.assertNotIn("query.publisher-name", parameters)
 
+    def test_search_can_filter_public_metadata_to_ieee(self):
+        payload = {
+            "message": {
+                "items": [
+                    {
+                        "title": ["IEEE machining study"],
+                        "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+                        "type": "journal-article",
+                    },
+                    {
+                        "title": ["Non-IEEE record"],
+                        "publisher": "Elsevier",
+                        "type": "journal-article",
+                    },
+                ]
+            }
+        }
+        with patch(
+            "crossref_evidence.urlopen",
+            return_value=BytesIO(json.dumps(payload).encode("utf-8")),
+        ) as mocked:
+            results = search_research_articles(
+                "machining tool wear", publisher="IEEE"
+            )
+
+        self.assertEqual([item["title"] for item in results], ["IEEE machining study"])
+        parameters = parse_qs(urlparse(mocked.call_args.args[0].full_url).query)
+        self.assertEqual(parameters["query.publisher-name"], ["IEEE"])
+
 
 if __name__ == "__main__":
     unittest.main()

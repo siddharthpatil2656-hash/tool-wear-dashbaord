@@ -65,6 +65,8 @@ from springer_library import (
     relevant_references,
     save_reference_library,
 )
+from cost_model import build_cost_curve
+from gcode_optimizer import cutting_targets, update_spindle_and_feed
 
 
 # "-- No Selection --" means that field was left empty: modifiers fall back to
@@ -374,9 +376,9 @@ PLOTLY_CONFIG = {
 
 
 @st.cache_data(ttl=15 * 60, max_entries=64, show_spinner=False)
-def _cached_research_search(query, refresh_token=0):
+def _cached_research_search(query, refresh_token=0, publisher=None):
     try:
-        return search_research_articles(query), ""
+        return search_research_articles(query, publisher=publisher), ""
     except (RuntimeError, ValueError) as exc:
         return [], str(exc)
 
@@ -572,6 +574,121 @@ def _build_pdf_report(
             "ReportSmall",
         ),
     ])
+    document.build(story)
+    return output.getvalue()
+
+
+def _build_setup_sheet(
+    prediction,
+    tool_change_interval_min,
+    failure_mode,
+    failure_limit_mm,
+    currency,
+    minimum_cost_point=None,
+):
+    """Build a compact operator setup sheet with model and machine boundaries."""
+    output = BytesIO()
+    document = SimpleDocTemplate(
+        output,
+        pagesize=letter,
+        rightMargin=0.55 * inch,
+        leftMargin=0.55 * inch,
+        topMargin=0.45 * inch,
+        bottomMargin=0.45 * inch,
+        title="Machining Setup Sheet",
+        author="Machining Tool Wear Dashboard",
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "SetupTitle",
+        parent=styles["Title"],
+        alignment=TA_CENTER,
+        fontSize=17,
+        leading=20,
+        spaceAfter=8,
+        textColor=colors.HexColor("#17324D"),
+    )
+    body_style = ParagraphStyle(
+        "SetupBody",
+        parent=styles["BodyText"],
+        fontSize=8.5,
+        leading=11,
+        spaceAfter=3,
+    )
+    safety_style = ParagraphStyle(
+        "SetupSafety",
+        parent=styles["BodyText"],
+        fontSize=7,
+        leading=9,
+        textColor=colors.HexColor("#7F1D1D"),
+        spaceBefore=4,
+    )
+
+    def para(text):
+        return Paragraph(escape(_pdf_text(text)), body_style)
+
+    machine = prediction.machine
+    pairing = prediction.pairing
+    failure_text = (
+        f"{failure_mode}: operator-entered limit {failure_limit_mm:.3f} mm"
+        if failure_limit_mm is not None
+        else f"{failure_mode}: set limit from the applicable tool specification or inspection plan"
+    )
+    def bounded_range(minimum, model_maximum, machine_maximum, unit):
+        maximum = min(model_maximum, machine_maximum)
+        if maximum < minimum:
+            return "No overlap between the active model and machine limits"
+        return f"{minimum:.3f}–{maximum:.3f} {unit}"
+
+    rows = [
+        ["Workpiece / tool", f"{pairing.workpiece_name} / {pairing.tool_material} ({pairing.coating})"],
+        ["Machine / operation", f"{prediction.machine_name} / {prediction.operation_name or 'Not specified'}"],
+        ["Coolant / holder", f"{prediction.coolant_name} / {prediction.holder_name or 'Not specified'}"],
+        ["Target cutting settings", f"Vc {prediction.vc:.1f} m/min | feed {prediction.feed:.4f} | ap {prediction.ap:.3f} mm"],
+        ["Estimated tool life", f"{prediction.tool_life_minutes:.1f} min (model estimate; VB criterion)"],
+        ["Planned inspection/change interval", f"{tool_change_interval_min:.1f} min; confirm with controlled trials"],
+        ["Selected failure criterion", failure_text],
+        ["Model / machine speed overlap", bounded_range(pairing.v_min, pairing.v_max, machine.max_vc_m_per_min, "m/min")],
+        ["Model / machine feed overlap", bounded_range(pairing.f_min, pairing.f_max, machine.max_feed_mm, "operation units")],
+        ["Model / machine depth overlap", bounded_range(pairing.ap_min, pairing.ap_max, machine.max_ap_mm, "mm")],
+        ["Machine envelope ceilings", f"Vc ≤ {machine.max_vc_m_per_min:.1f} m/min | feed ≤ {machine.max_feed_mm:.4f} | ap ≤ {machine.max_ap_mm:.3f} mm"],
+    ]
+    if minimum_cost_point is not None:
+        rows.append([
+            "Cost-screened candidate",
+            f"{minimum_cost_point.cutting_speed_m_min:.1f} m/min; "
+            f"{currency} {minimum_cost_point.cost_per_part:.2f}/part; "
+            f"{minimum_cost_point.tool_life_min:.1f} min modeled life",
+        ])
+    table = Table(
+        [[para(label), para(value)] for label, value in rows],
+        colWidths=[1.8 * inch, 5.15 * inch],
+        hAlign="LEFT",
+    )
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#EAF0F5")),
+        ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#B8C5D1")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story = [
+        Paragraph("Machining setup sheet", title_style),
+        para(f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}"),
+        table,
+        Spacer(1, 8),
+        Paragraph(
+            escape(
+                "SAFETY: planning aid only. Model outputs are not verified machine instructions. "
+                "Check tool-maker limits, workholding, spindle power, chip load, controller mode, "
+                "and part quality. Simulate and approve any program changes; inspect tools at the "
+                "validated interval. VN/KT limits are not used to predict life by this model."
+            ),
+            safety_style,
+        ),
+    ]
     document.build(story)
     return output.getvalue()
 
@@ -1264,6 +1381,7 @@ opt_report = optimize_tool_wear(
 )
 what_if_result = None
 verified_trial_options = []
+minimum_cost_point = None
 
 
 # Main Content Area Header
@@ -1875,6 +1993,348 @@ with tab2:
             "validate candidate changes with controlled shop trials."
         )
 
+    st.markdown("---")
+    st.subheader("Cost efficiency and unit economics")
+    st.caption(
+        "Estimate cost per part across cutting-speed candidates. Tool life, MRR, and the "
+        "resulting economic speed are model estimates, not a guaranteed production optimum."
+    )
+    cost_inputs = st.columns(5)
+    with cost_inputs[0]:
+        part_volume_cm3 = st.number_input(
+            "Material to remove per part (cm³)",
+            min_value=0.0,
+            value=0.0,
+            step=1.0,
+            key="cost_part_volume",
+        )
+    with cost_inputs[1]:
+        tool_edge_cost = st.number_input(
+            "Tool cost per usable cutting edge",
+            min_value=0.0,
+            value=0.0,
+            step=1.0,
+            key="cost_tool_edge",
+        )
+    with cost_inputs[2]:
+        machine_rate = st.number_input(
+            "Machine rate per hour",
+            min_value=0.0,
+            value=0.0,
+            step=1.0,
+            key="cost_machine_rate",
+        )
+    with cost_inputs[3]:
+        operator_rate = st.number_input(
+            "Operator rate per hour",
+            min_value=0.0,
+            value=0.0,
+            step=1.0,
+            key="cost_operator_rate",
+        )
+    with cost_inputs[4]:
+        tool_change_min = st.number_input(
+            "Tool change time (min)",
+            min_value=0.0,
+            value=0.0,
+            step=0.5,
+            key="cost_tool_change_time",
+        )
+    currency = st.selectbox(
+        "Currency for cost display",
+        ["INR", "USD", "EUR", "GBP"],
+        key="cost_currency",
+    )
+    cost_speed_min = max(1.0, float(pairing_info.v_min))
+    cost_speed_max = min(
+        float(pairing_info.v_max),
+        float(machine_info.max_vc_m_per_min),
+    )
+    cost_feed_in_range = pairing_info.f_min <= what_if_feed <= pairing_info.f_max
+    cost_depth_in_range = pairing_info.ap_min <= what_if_ap <= pairing_info.ap_max
+    cost_curve_points = []
+    if part_volume_cm3 <= 0:
+        st.info("Enter the material volume removed per part and at least one positive cost to calculate unit economics.")
+    elif not cost_feed_in_range or not cost_depth_in_range:
+        st.warning(
+            "The selected what-if feed/depth is outside the model range. Cost screening is "
+            "paused rather than extrapolated."
+        )
+    elif cost_speed_min >= cost_speed_max:
+        st.warning("The selected model and machine have no overlapping cutting-speed range for cost screening.")
+    elif (tool_edge_cost + machine_rate + operator_rate) <= 0:
+        st.info("Enter a positive tool-edge, machine, or operator cost to compare candidates.")
+    else:
+        def _cost_life(speed, feed, depth):
+            return calculate_tool_life(
+                pairing_info,
+                machine_info,
+                COOLANT_DATABASE[selected_coolant],
+                speed,
+                feed,
+                depth,
+                is_roughing=is_roughing,
+                operation_name=selected_operation,
+                milling_tooling_name=selected_milling_tooling,
+                holder_name=selected_holder,
+                overhang_ratio=overhang_input,
+            )
+
+        def _cost_mrr(speed, feed, depth):
+            return calculate_mrr(
+                speed,
+                feed,
+                depth,
+                operation_name=selected_operation,
+                milling_tooling_name=selected_milling_tooling,
+            )
+
+        cost_curve_points = build_cost_curve(
+            cutting_speeds=np.linspace(cost_speed_min, cost_speed_max, 51),
+            feed=what_if_feed,
+            depth_of_cut=what_if_ap,
+            part_volume_cm3=part_volume_cm3,
+            tool_edge_cost=tool_edge_cost,
+            machine_rate_per_hour=machine_rate,
+            operator_rate_per_hour=operator_rate,
+            tool_change_min=tool_change_min,
+            tool_life_fn=_cost_life,
+            mrr_fn=_cost_mrr,
+        )
+        minimum_cost_point = min(cost_curve_points, key=lambda point: point.cost_per_part)
+        cost_cols = st.columns(3)
+        cost_cols[0].metric(
+            "Lowest estimated cost / part",
+            f"{currency} {minimum_cost_point.cost_per_part:.2f}",
+        )
+        cost_cols[1].metric(
+            "Economic speed in screened range",
+            f"{minimum_cost_point.cutting_speed_m_min:.1f} m/min",
+        )
+        cost_cols[2].metric(
+            "Modeled life at that speed",
+            f"{minimum_cost_point.tool_life_min:.1f} min",
+        )
+        cost_fig = go.Figure()
+        cost_fig.add_trace(go.Scatter(
+            x=[point.machining_time_min for point in cost_curve_points],
+            y=[point.cost_per_part for point in cost_curve_points],
+            mode="lines+markers",
+            name="Cutting-speed candidates",
+            line=dict(color=CHART_COLORS["primary"], width=2.5),
+            marker=dict(
+                size=7,
+                color=[point.cutting_speed_m_min for point in cost_curve_points],
+                colorscale="Viridis",
+                showscale=True,
+                colorbar=dict(title="Vc<br>m/min"),
+            ),
+            customdata=[
+                [
+                    point.cutting_speed_m_min,
+                    point.tool_life_min,
+                    point.total_cycle_time_min,
+                ]
+                for point in cost_curve_points
+            ],
+            hovertemplate=(
+                "Machining time: %{x:.2f} min/part<br>"
+                f"Cost: {currency} %{{y:.2f}}/part<br>"
+                "Speed: %{customdata[0]:.1f} m/min<br>"
+                "Modeled life: %{customdata[1]:.1f} min<br>"
+                "Cycle incl. amortized change: %{customdata[2]:.2f} min<extra></extra>"
+            ),
+        ))
+        cost_fig.add_trace(go.Scatter(
+            x=[minimum_cost_point.machining_time_min],
+            y=[minimum_cost_point.cost_per_part],
+            mode="markers+text",
+            name="Lowest estimated cost",
+            text=["Lowest cost"],
+            textposition="top center",
+            marker=dict(
+                size=14,
+                color=CHART_COLORS["warning"],
+                symbol="star",
+                line=dict(color="#FFFFFF", width=1.2),
+            ),
+            hovertemplate=(
+                f"Lowest estimated cost<br>Cost: {currency} %{{y:.2f}}/part"
+                "<extra></extra>"
+            ),
+        ))
+        cost_fig.update_layout(
+            title="Estimated cost per part vs. cutting time",
+            xaxis_title="Machining time per part (min)",
+            yaxis_title=f"Estimated cost per part ({currency})",
+        )
+        _polish_chart(cost_fig, height=390)
+        st.plotly_chart(
+            cost_fig,
+            width="stretch",
+            config=PLOTLY_CONFIG,
+            key="cost_time_pareto_chart",
+        )
+        st.caption(
+            "Assumptions: material-removal volume ÷ modeled MRR gives cutting time; edge "
+            "consumption is cutting time ÷ modeled tool life; tool-change time and combined "
+            "machine/operator hourly rates are amortized per part. Setup, scrap, overhead, "
+            "coolant, energy, and non-cutting handling costs are excluded."
+        )
+
+    st.markdown("---")
+    st.subheader("Failure-mode selector and inspection guidance")
+    failure_mode = st.selectbox(
+        "Inspection criterion",
+        ["VBmax — flank wear", "VN — notch wear", "KT — crater wear"],
+        key="failure_mode_selector",
+    )
+    failure_mode_key = failure_mode.split(" — ", 1)[0]
+    failure_limit_mm = None
+    if failure_mode_key == "VBmax":
+        failure_limit_mm = pred.vb_threshold_mm
+        st.info(
+            f"Current Taylor tool-life estimate uses the built-in flank-wear limit "
+            f"VB = {failure_limit_mm:.3f} mm."
+        )
+    else:
+        failure_limit_mm = st.number_input(
+            f"Enter your validated {failure_mode_key} limit (mm)",
+            min_value=0.0,
+            max_value=10.0,
+            value=0.0,
+            step=0.01,
+            format="%.3f",
+            key=f"failure_limit_{failure_mode_key.lower()}",
+            help="Use a value from the applicable tool-maker specification, drawing, or validated inspection plan. Zero means no limit entered.",
+        )
+        if failure_limit_mm <= 0:
+            failure_limit_mm = None
+        st.warning(
+            f"The tool-life model remains based on flank wear (VB). Selecting {failure_mode_key} "
+            "records an inspection criterion only; it does not predict notch/crater growth or "
+            "convert that limit into tool life."
+        )
+    diagnosis_cols = st.columns(3)
+    diagnosis_cards = (
+        ("VBmax — flank wear", "Inspect the clearance face for a continuous wear land. Compare measurements at repeatable locations and under the same inspection method."),
+        ("VN — notch wear", "Inspect at the depth-of-cut line for localized notching. Interrupted entry, work-hardening, and edge alignment can contribute; check the tool-maker guidance."),
+        ("KT — crater wear", "Inspect the rake face for a crater behind the cutting edge. Heat, speed, workpiece chemistry, and coating compatibility may affect crater development."),
+    )
+    for column, (title, description) in zip(diagnosis_cols, diagnosis_cards):
+        with column:
+            with st.container(border=True):
+                st.markdown(f"**{title}**")
+                st.caption(description)
+    wear_mechanisms = getattr(pairing_info, "observed_wear_mechanisms", "")
+    if wear_mechanisms:
+        st.caption(f"Material/tool record notes: {wear_mechanisms}")
+
+    st.markdown("---")
+    st.subheader("G-code S/F preview")
+    st.warning(
+        "Preview only: this edits S and F words in one G01 feed-motion block. It does not generate "
+        "toolpaths, verify a controller dialect, or provide adaptive protection. Simulate and "
+        "review every change with the machine/tool documentation before use."
+    )
+    gcode_col1, gcode_col2, gcode_col3 = st.columns([2, 1, 1])
+    with gcode_col1:
+        gcode_line = st.text_input(
+            "One metric G-code G01 block",
+            key="gcode_preview_input",
+            placeholder="G01 X10.0 Y5.0 S3000 F250 ; example only",
+        )
+    default_tool = MILLING_TOOLING_DATABASE.get(selected_milling_tooling) if selected_milling_tooling else None
+    with gcode_col2:
+        gcode_diameter_mm = st.number_input(
+            "Cutting diameter (mm)",
+            min_value=0.1,
+            value=float(default_tool.diameter_mm if default_tool else 25.0),
+            step=0.5,
+            key="gcode_diameter_mm",
+        )
+    with gcode_col3:
+        gcode_teeth = st.number_input(
+            "Effective cutting edges",
+            min_value=1,
+            max_value=100,
+            value=int(default_tool.teeth if default_tool else 1),
+            step=1,
+            key="gcode_teeth",
+            help="For milling use the cutter's effective flute count; turning/drilling usually use 1.",
+        )
+    gcode_mode = st.selectbox(
+        "Active feed mode for this block",
+        ["G94 — units per minute", "G95 — units per revolution"],
+        key="gcode_feed_mode",
+    ).split(" — ", 1)[0]
+    limits_col1, limits_col2 = st.columns(2)
+    with limits_col1:
+        gcode_max_rpm = st.number_input(
+            "Machine maximum spindle RPM",
+            min_value=0,
+            value=0,
+            step=100,
+            key="gcode_max_rpm",
+            help="Enter the machine's rated limit. Zero leaves the S/F preview disabled.",
+        )
+    with limits_col2:
+        gcode_max_feed = st.number_input(
+            f"Machine maximum F in {gcode_mode} mode",
+            min_value=0.0,
+            value=0.0,
+            step=10.0,
+            key="gcode_max_feed",
+            help="Enter the controller/machine feed-command limit in the units active for this program.",
+        )
+    st.checkbox(
+        "I confirm this program is in G21 metric mode (not G20 inch mode)",
+        key="gcode_metric_confirmed",
+    )
+    if gcode_line.strip():
+        if not st.session_state["gcode_metric_confirmed"]:
+            st.info("Confirm metric G21 mode before generating the S/F preview.")
+        else:
+            try:
+                target_rpm, target_feed = cutting_targets(
+                    cutting_speed_m_min=what_if_vc,
+                    diameter_mm=gcode_diameter_mm,
+                    feed_value=what_if_feed,
+                    feed_unit=op_info.feed_unit,
+                    teeth=int(gcode_teeth),
+                    feed_mode=gcode_mode,
+                )
+                if gcode_max_rpm <= 0 or gcode_max_feed <= 0:
+                    raise ValueError(
+                        "Enter positive machine RPM and active-mode feed limits before previewing."
+                    )
+                if target_rpm > gcode_max_rpm:
+                    raise ValueError(
+                        f"Target S{target_rpm} exceeds the entered machine limit "
+                        f"of {gcode_max_rpm} RPM."
+                    )
+                if target_feed > gcode_max_feed:
+                    raise ValueError(
+                        f"Target F{target_feed:.3f} exceeds the entered active-mode limit "
+                        f"of {gcode_max_feed:.3f}."
+                    )
+                revised_gcode = update_spindle_and_feed(
+                    gcode_line,
+                    target_rpm,
+                    target_feed,
+                    gcode_mode,
+                )
+                st.code(revised_gcode, language="gcode")
+                st.download_button(
+                    "Download S/F preview text",
+                    data=revised_gcode + "\n",
+                    file_name="gcode_sf_preview.txt",
+                    mime="text/plain",
+                    key="download_gcode_preview",
+                )
+            except ValueError as exc:
+                st.error(f"Could not generate the preview: {exc}")
+
     # Strategy Comparison Table
     st.markdown("---")
     st.subheader("Heuristic strategy previews — model estimates")
@@ -2279,6 +2739,7 @@ with tab2:
 # ==============================================================================
 research_evidence_results = []
 research_report_evidence = []
+ieee_evidence_results = []
 research_live_error = ""
 with tab3:
     st.subheader("📚 Research, standards, and model evidence")
@@ -2405,6 +2866,77 @@ with tab3:
             "is unaffected; use the local citation library below or adjust the selected setup."
         )
 
+    st.markdown("### IEEE-published machining research")
+    st.caption(
+        "This separate search filters public Crossref journal metadata to IEEE-published "
+        "records related to the selected setup. IEEE Xplore may restrict full text or data "
+        "tables to subscribers. Results are citations only and do not modify any model "
+        "coefficients or predictions."
+    )
+    ieee_refresh_token = st.session_state.get("ieee_reference_refresh_token", 0)
+    try:
+        with st.spinner("Searching IEEE publication metadata..."):
+            ieee_records, ieee_error = _cached_research_search(
+                research_query,
+                ieee_refresh_token,
+                publisher="IEEE",
+            )
+        if not ieee_error:
+            ieee_evidence_results = ieee_records
+            st.session_state["ieee_research_evidence_records"] = ieee_records
+            st.session_state["ieee_research_evidence_query"] = research_query
+        else:
+            st.warning(f"IEEE reference search is unavailable: {ieee_error}")
+            ieee_evidence_results = st.session_state.get(
+                "ieee_research_evidence_records", []
+            )
+    except (RuntimeError, ValueError) as exc:
+        st.warning(f"IEEE reference search is unavailable: {exc}")
+        ieee_evidence_results = st.session_state.get(
+            "ieee_research_evidence_records", []
+        )
+
+    if ieee_evidence_results:
+        ieee_searched_query = st.session_state.get(
+            "ieee_research_evidence_query", ""
+        )
+        if ieee_searched_query != research_query:
+            st.caption(
+                "Showing saved IEEE records from the previous setup because the latest "
+                "search could not complete."
+            )
+        for index, item in enumerate(ieee_evidence_results, start=1):
+            with st.expander(f"{index}. {item['title']}"):
+                if item.get("authors"):
+                    st.write(f"**Authors:** {item['authors']}")
+                if item.get("publication") or item.get("date"):
+                    st.write(
+                        f"**Publication:** {item.get('publication', '')} "
+                        f"{item.get('date', '')}"
+                    )
+                if item.get("doi"):
+                    st.write(f"**DOI:** {item['doi']}")
+                if item.get("abstract"):
+                    st.write(item["abstract"])
+                if item.get("url"):
+                    st.link_button("Open IEEE article record", item["url"])
+        st.download_button(
+            "Download IEEE references (CSV)",
+            data=pd.DataFrame(ieee_evidence_results).to_csv(index=False),
+            file_name="ieee_machining_references.csv",
+            mime="text/csv",
+            key="download_ieee_evidence",
+        )
+    else:
+        st.info(
+            "No IEEE journal records matched this setup in Crossref. This does not mean "
+            "IEEE Xplore contains no relevant records; search IEEE Xplore directly."
+        )
+    st.link_button(
+        "Search IEEE Xplore",
+        "https://ieeexplore.ieee.org/search/searchresult.jsp?queryText=machining%20tool%20wear",
+    )
+
     st.markdown("### Public handbooks, data, and standards catalogs")
     st.caption(
         "Curated links below were selected for machining formulas, tool-life test methods, "
@@ -2459,12 +2991,13 @@ with tab3:
         offline_references, research_query, limit=20
     )
     research_report_evidence = merge_references(
-        offline_relevant_evidence, research_evidence_results
+        research_evidence_results, ieee_evidence_results
     )[:20]
     if offline_references:
         st.caption(
             f"{len(offline_references)} locally saved citation record(s); "
-            f"{len(offline_relevant_evidence)} match this simulation's terms."
+            f"{len(offline_relevant_evidence)} match this simulation's terms. "
+            "Saved offline citations are not included in the PDF report."
         )
         if offline_relevant_evidence:
             for index, item in enumerate(offline_relevant_evidence, start=1):
@@ -2737,6 +3270,38 @@ with tab4:
         data=pdf_data,
         file_name=f"tool_wear_forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
         mime="application/pdf",
+    )
+
+    st.markdown("---")
+    st.subheader("Operator setup sheet")
+    change_margin_pct = st.slider(
+        "Planned tool-change interval as a fraction of modeled tool life (%)",
+        min_value=50,
+        max_value=95,
+        value=80,
+        step=5,
+        key="setup_sheet_life_margin",
+        help="A planning margin only; set and validate the interval with repeated shop trials and the applicable tool-maker guidance.",
+    )
+    planned_change_interval = pred.tool_life_minutes * change_margin_pct / 100.0
+    st.caption(
+        f"Planned inspection/change interval: {planned_change_interval:.1f} min "
+        f"({change_margin_pct}% of modeled VB tool life). This is an estimate, not a guarantee."
+    )
+    setup_sheet_pdf = _build_setup_sheet(
+        pred,
+        planned_change_interval,
+        failure_mode,
+        failure_limit_mm,
+        currency,
+        minimum_cost_point,
+    )
+    st.download_button(
+        "Download one-page operator setup sheet (PDF)",
+        data=setup_sheet_pdf,
+        file_name=f"machining_setup_sheet_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+        mime="application/pdf",
+        key="download_operator_setup_sheet",
     )
 
     st.markdown("---")

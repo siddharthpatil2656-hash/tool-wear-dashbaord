@@ -30,6 +30,9 @@ The dashboard includes bundled Taylor-model records and an optional calibration 
    - **Setup-Specific Guidance**: Operation, cutter, tool material/coating, machine rigidity, holder/overhang, and coolant records inform actionable checks.
    - Candidate gains are model estimates—not verified production recipes. Validate in controlled trials and check manufacturer, machine, workholding, and quality limits before production.
    - **Interactive What-if**: Adjust cutting speed, feed, and depth in the optimization tab to recalculate predicted tool life and MRR alongside the unchanged current forecast. Controls follow the active model limits and machine envelope; candidates outside the model range are flagged as extrapolations. The selected candidate is also included in CSV/PDF scenario exports.
+   - **Cost efficiency and unit economics**: Estimate cost per part and plot cost against cutting time over a bounded cutting-speed sweep. Inputs include removed part volume, tool-edge cost, machine/operator hourly rates, and tool-change time. Setup, scrap, energy, coolant, and non-cutting logistics are excluded, so calibrate the inputs to the shop before using the model estimate.
+   - **Failure-mode inspection guidance**: Select flank wear (VBmax), notch wear (VN), or crater wear (KT) and enter a validated VN/KT limit. The bundled Taylor life model still predicts VB only; a selected VN/KT value is an inspection criterion, not a non-flank-wear life prediction.
+   - **G-code S/F preview**: Preview replacement of S/F words in one metric G01 block using the what-if settings. Requires confirmation of G21 and user-entered machine RPM/feed limits; rejects G20, G96, rapid/arc/canned-cycle blocks, and conflicting feed modes. It does not generate toolpaths or validate a controller; simulate and review the program before any machine use.
    - **Measured-trial-backed options**: With a valid setup-matched trial CSV uploaded, the optimization tab ranks observed tool-life runs against calculated MRR targets. This uses the local CSV and remains available offline; without matching trials, this section does not label model-generated plans as verified. Internet article metadata is for citations, not numerical machining outcomes.
 
 ### How model-screened and measured results differ
@@ -43,16 +46,16 @@ For future edits, change the source files in the project folder, not only a copy
 - **`springer_database.py`** is the source for bundled material/tool pairings, Taylor coefficients and parameter ranges, machines, coolants, operations, holders, tooling, and citation metadata. Keep dictionary keys unique; parameter units and valid ranges explicit; and record traceable source/provenance notes. Verify every DOI/title/author/year against the publisher or Crossref. Do not label a coefficient “verified” from citation metadata alone.
 - **Prefer adding measured, setup-matched tool-life trials** via the calibration CSV instead of guessing new Taylor constants. Use consistent failure criteria and vary speed, feed, and depth independently. Calibration requires at least 8 matching runs and reports fit/leave-one-out diagnostics. The fit is a local empirical model, not a universal material constant.
 - **`springer_library.py` / `springer_references.json`** manage imported citations for offline viewing; these records do not affect model calculations. `springer_references.json` is local and ignored by git, so back it up/export it separately if needed.
-- After a code/database change, run `python test_suite.py` and `python -m unittest test_calibration test_crossref_evidence test_springer_library -v`, then `python -m py_compile app.py optimizer.py calibration.py springer_database.py tool_physics.py`. Update this README when the schema or workflow changes and rebuild `offline_dashboard_update.zip` from the source project files for offline PCs.
+- After a code/database change, run `python test_suite.py` and `python -m unittest test_calibration test_crossref_evidence test_springer_library test_cost_model test_gcode_optimizer -v`, then `python -m py_compile app.py optimizer.py calibration.py springer_database.py tool_physics.py cost_model.py gcode_optimizer.py`. Update this README when the schema or workflow changes and rebuild `offline_dashboard_update.zip` from the source project files for offline PCs.
 
 4. **Research, standards, and model evidence**:
-   - Evidence tab includes Crossref discovery across journal publishers, plus links to Sandvik Coromant machining formulas/tool guidance, ISO, ASME, ASTM, the PHM Society CNC cutter wear dataset, and the CRC Press *Handbook of Advanced Ceramics Machining* record.
+   - Evidence tab includes Crossref discovery across journal publishers, a separate IEEE-publisher metadata search, plus links to Sandvik Coromant machining formulas/tool guidance, ISO, ASME, ASTM, the PHM Society CNC cutter wear dataset, and the CRC Press *Handbook of Advanced Ceramics Machining* record.
    - Standards are identified as test methods/catalog records, not as open prediction datasets.
    - Bundled citation metadata is checked for known DOI mismatches; the model-range score is explicitly heuristic, not statistical confidence.
 
 5. **Scenario Comparison & Export**:
    - Side-by-side comparison of current, model-screened, measured-trial-backed, and interactive what-if scenarios.
-   - CSV data export and a portrait PDF report with machining inputs, scenario comparisons, and references.
+   - CSV data export, a portrait PDF forecast report, and a one-page operator setup sheet with model/machine boundaries and a configurable planning interval.
    - Each input dropdown includes a **Reset to default** option.
    - Optional Taylor-model calibration from at least 8 measured tool-life runs matching the current material, machine, coolant, operation, tooling, holder, overhang, and roughing setup.
 
@@ -60,14 +63,14 @@ For future edits, change the source files in the project folder, not only a copy
 In the dashboard sidebar, expand **Calibrate with measured tool-life trials** and download the CSV template. Fill one row per completed trial, keeping its setup columns unchanged while varying cutting speed, feed, and depth independently. Use consistent tool-life failure criteria across runs, then upload the CSV. Only matching setup rows are fitted; the app reports both in-sample and leave-one-out fit statistics and limits the model's supported parameter range to the uploaded trials. A publisher citation or test standard alone does not recalibrate predictions.
 
 ### Live references and handbooks
-The **Research, standards & evidence** tab searches Crossref's public journal metadata across publishers for records related to the selected workpiece/tool/operation. It requires an internet connection but no API key; responses are cached briefly. The tab also links to public Sandvik Coromant machining formulas and manufacturer tool guidance, the PHM Society's CNC cutter-wear sensor dataset, the CRC Press *Handbook of Advanced Ceramics Machining* book record, and the applicable ISO/ASME/ASTM catalogs. Some handbooks and standards require purchase or institutional access. These are discovery and engineering references, not all freely downloadable handbooks.
+The **Research, standards & evidence** tab searches Crossref's public journal metadata across publishers, including a separate publisher-filtered IEEE search, for records related to the selected workpiece/tool/operation. It requires an internet connection but no API key; responses are cached briefly. The tab also links to public Sandvik Coromant machining formulas and manufacturer tool guidance, the PHM Society's CNC cutter-wear sensor dataset, the CRC Press *Handbook of Advanced Ceramics Machining* book record, and the applicable ISO/ASME/ASTM catalogs. Some handbooks and standards require purchase or institutional access. These are discovery and engineering references, not all freely downloadable handbooks.
 
-Citation metadata and manufacturer formulas generally do not expose comparable experimental rows for the exact tool grade, geometry, coolant, machine, wear criterion, and cut. Therefore the app does not infer Taylor coefficients or claim improved prediction accuracy from reference titles/abstracts. Crossref references are not full text, and the PHM dataset is a specific sensor-based milling experiment rather than a universal machining table. Live references and the local offline citation library add traceable context only; they do not automatically alter the numeric model.
+Citation metadata and manufacturer formulas generally do not expose comparable experimental rows for the exact tool grade, geometry, coolant, machine, wear criterion, and cut. Therefore the app does not infer Taylor coefficients or claim improved prediction accuracy from reference titles/abstracts, including IEEE records. Crossref references are not full text, and the PHM dataset is a specific sensor-based milling experiment rather than a universal machining table. Live references and the local offline citation library add traceable context only; they do not automatically alter the numeric model.
 
 To improve setup-specific numeric accuracy, upload repeated measured tool-life trials with matching setup and consistent failure criteria. Keep a copy of the original records and validate fitted models on held-out/repeat runs. Do not paste proprietary handbook tables or article full text into the bundled database without permission; record bibliographic provenance and licensing, and manually validate any permitted values before modeling.
 
 ### Keep citations available offline
-Export relevant citations from supported publishers or your library as RIS, BibTeX, or CSV metadata (follow licensing terms; do not bulk-download or redistribute article full text). In the dashboard's **Research, standards & evidence** tab, use **Choose a citation export** and select **Import and save references offline**. Imported citation records are stored locally in the ignored `springer_references.json` file beside `app.py`, displayed when offline, ranked against the selected setup, and included in the forecast PDF when relevant. Transfer the citation export to the offline PC by USB before importing it there. The reference library is computer-local; export a CSV backup if moving/reinstalling the dashboard.
+Export relevant citations from supported publishers or your library as RIS, BibTeX, or CSV metadata (follow licensing terms; do not bulk-download or redistribute article full text). In the dashboard's **Research, standards & evidence** tab, use **Choose a citation export** and select **Import and save references offline**. Imported citation records are stored locally in the ignored `springer_references.json` file beside `app.py` and displayed when offline; saved offline citations are not included in the forecast PDF. Transfer the citation export to the offline PC by USB before importing it there. The reference library is computer-local; export a CSV backup if moving/reinstalling the dashboard.
 
 ---
 
@@ -117,9 +120,13 @@ tool_wear_dashboard/
 ├── calibration.py          # Setup-matched Taylor model fit from measured tool-life trials
 ├── crossref_evidence.py    # Keyless Crossref search across journal publishers
 ├── springer_library.py     # Import and persist citation exports for offline use
+├── cost_model.py           # Cost-per-part and speed-sweep unit economics
+├── gcode_optimizer.py      # Guarded metric G01 S/F preview calculations
 ├── test_calibration.py     # Calibration validation tests
 ├── test_springer_library.py # Offline citation import/persistence tests
 ├── test_crossref_evidence.py # Live reference search client tests
+├── test_cost_model.py      # Unit-economics model tests
+├── test_gcode_optimizer.py # G-code S/F conversion and guard tests
 ├── test_suite.py           # Automated prediction, boundary, and optimizer checks
 ├── run_dashboard.bat       # Windows one-click launcher
 └── README.md               # Documentation and engineering guide
