@@ -34,7 +34,9 @@ Predictions and physics models are **grounded in peer-reviewed experimental lite
 
 5. **Scenario Comparison & Export**:
    - Side-by-side comparison of Current vs. Balanced vs. Max-Life vs. High-Efficiency scenarios.
-   - 1-Click CSV report download.
+   - CSV data export and a portrait PDF report with machining inputs, scenario comparisons, and references.
+   - Each input dropdown includes a **Reset to default** option.
+   - Evidence view distinguishes selected database evidence from ISO/ASME tool-life test-method references.
 
 ---
 
