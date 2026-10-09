@@ -49,6 +49,7 @@ from tool_physics import (
     calculate_tool_life_multiplier,
     calculate_mrr,
     effective_coolant_factor,
+    get_current_flank_wear,
 )
 from optimizer import optimize_tool_wear
 from presets import INDUSTRY_PRESETS
@@ -67,6 +68,15 @@ from springer_library import (
 )
 from cost_model import build_cost_curve
 from gcode_optimizer import cutting_targets, update_spindle_and_feed
+from ml_model import (
+    MLModelParams,
+    blend_lives,
+    measured_tuples_from_trials,
+    predict_life,
+    predict_lives,
+    train_tool_life_model,
+)
+from reading_analysis import analyze_readings, build_batch_pdf, load_readings, manual_readings_template, standardize_readings
 
 
 # "-- No Selection --" means that field was left empty: modifiers fall back to
@@ -133,47 +143,63 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Theme-aware card and HTML table styling. Streamlit supplies these CSS tokens
-# from the active light or dark theme.
+# Theme-aware card and HTML table styling. Streamlit no longer exposes its
+# theme tokens as CSS variables (since ~1.30), so define our own on :root —
+# every rule below consumes these variables.
+_DARK_UI = st.context.theme.type == "dark"
+_THEME_VARS = (
+    "--primary-color: #67B7C7; --background-color: #0E1117; "
+    "--secondary-background-color: #1C2028; --text-color: #F2F5F8; "
+    "--border-color: rgba(242, 245, 248, 0.18);"
+    if _DARK_UI else
+    "--primary-color: #287E8C; --background-color: #FFFFFF; "
+    "--secondary-background-color: #F2F5F7; --text-color: #262730; "
+    "--border-color: rgba(38, 39, 48, 0.15);"
+)
 st.markdown("""
 <style>
+    :root {
+        __THEME_VARS__
+    }
     .main-header {
-        font-size: 2.2rem;
+        font-size: 2.05rem;
         font-weight: 700;
         color: var(--text-color);
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.1rem;
+        letter-spacing: -0.01em;
     }
     .sub-header {
-        font-size: 1.05rem;
-        color: var(--text-color);
-        opacity: 0.78;
-        margin-bottom: 1.5rem;
-    }
-    .kpi-card {
-        background: linear-gradient(135deg, var(--background-color) 0%, var(--secondary-background-color) 100%);
-        border: 1px solid var(--border-color, rgba(128, 128, 128, 0.25));
-        border-radius: 10px;
-        padding: 1.1rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    }
-    .kpi-title {
-        font-size: 0.85rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        font-size: 1.0rem;
         color: var(--text-color);
         opacity: 0.72;
-        margin-bottom: 0.3rem;
+        margin-bottom: 1.2rem;
+    }
+    .kpi-card {
+        background: var(--secondary-background-color);
+        border: 1px solid var(--border-color, rgba(128, 128, 128, 0.22));
+        border-top: 3px solid var(--primary-color);
+        border-radius: 8px;
+        padding: 0.95rem 1.1rem;
+    }
+    .kpi-title {
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-color);
+        opacity: 0.68;
+        margin-bottom: 0.35rem;
     }
     .kpi-value {
-        font-size: 1.9rem;
+        font-size: 1.8rem;
         font-weight: 700;
         color: var(--text-color);
+        line-height: 1.15;
     }
     .kpi-subtext {
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         color: var(--primary-color);
-        margin-top: 0.2rem;
+        margin-top: 0.3rem;
     }
     .springer-badge {
         background-color: var(--secondary-background-color);
@@ -186,13 +212,45 @@ st.markdown("""
         display: inline-block;
         margin-bottom: 0.5rem;
     }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        padding: 10px 18px;
+    .engine-badge {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 999px;
+        font-size: 0.78rem;
         font-weight: 600;
+        letter-spacing: 0.03em;
+        background: linear-gradient(135deg, #287E8C 0%, #4C8B71 100%);
+        color: #FFFFFF;
+        margin-left: 10px;
+        vertical-align: middle;
+    }
+    .stTabs [role="tablist"] {
+        gap: 6px;
+    }
+    .stTabs [data-testid="stTab"] {
+        padding: 9px 16px;
+        font-weight: 600;
+        font-size: 0.92rem;
         border-radius: 8px 8px 0 0;
+        color: var(--text-color);
+        opacity: 0.75;
+    }
+    .stTabs [data-testid="stTab"]:hover {
+        opacity: 1;
+        background-color: var(--secondary-background-color);
+    }
+    .stTabs [data-testid="stTab"][data-selected="true"] {
+        background: linear-gradient(135deg, #287E8C 0%, #4C8B71 100%);
+        color: #FFFFFF !important;
+        opacity: 1;
+        border: none;
+        box-shadow: 0 -2px 10px rgba(40, 126, 140, 0.35);
+    }
+    .stTabs [data-testid="stTab"][data-selected="true"] p,
+    .stTabs [data-testid="stTab"][data-selected="true"] span,
+    .stTabs [data-testid="stTab"][data-selected="true"] div {
+        color: #FFFFFF !important;
+        opacity: 1 !important;
     }
     table {
         width: 100%;
@@ -220,9 +278,11 @@ st.markdown("""
         background-color: var(--secondary-background-color);
     }
     [data-testid="stSidebar"] { border-right: 1px solid var(--border-color, rgba(128, 128, 128, 0.25)); }
-    [data-testid="stSidebar"] .stMarkdown h2 { font-size: 1.15rem; }
+    [data-testid="stSidebar"] .stMarkdown h2 { font-size: 1.05rem; font-weight: 600; }
+    [data-testid="stSidebar"] .stMarkdown h3 { font-size: 0.95rem; font-weight: 600; opacity: 0.85; }
+    [data-testid="stSidebar"] hr { margin: 0.8rem 0; }
 </style>
-""", unsafe_allow_html=True)
+""".replace("__THEME_VARS__", _THEME_VARS), unsafe_allow_html=True)
 
 
 DARK_THEME = st.context.theme.type == "dark"
@@ -238,6 +298,12 @@ CHART_COLORS = {
 
 
 CUSTOM_PARAMS = "-- Custom User Parameters --"
+
+
+@st.cache_resource(show_spinner=False)
+def _get_ml_model(params: MLModelParams, measured: tuple, random_state: int = 42):
+    """Train (and cache) the hybrid tool-life ensemble for one setup snapshot."""
+    return train_tool_life_model(params, measured=measured, random_state=random_state)
 
 
 def _reset_dropdown(key, default_value):
@@ -552,6 +618,8 @@ def _build_pdf_report(
                 f"DOI: {item.get('doi', 'not supplied')}. "
                 f"{item.get('url', '')}"
             )
+
+
             story.append(paragraph(citation, "ReportSmall"))
             if item.get("abstract"):
                 story.append(paragraph(f"Abstract: {item['abstract']}", "ReportSmall"))
@@ -816,7 +884,7 @@ with st.sidebar:
         default_milling_tooling = None
 
     st.markdown("---")
-    st.markdown("### Tool & material")
+    st.markdown("### 1. Tool & Material")
 
     # Mode toggle: Independent vs Curated Pairings
     material_mode = st.radio(
@@ -1249,6 +1317,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### 4. Tool In-Service Monitor")
+
     current_time_input = st.number_input(
         "Current Elapsed Cutting Time (minutes):",
         min_value=0.0,
@@ -1258,94 +1327,72 @@ with st.sidebar:
         help="Enter current machining time on this tool edge to estimate Remaining Useful Life (RUL).",
         **_init("time_input", value=float(default_time)),
     )
-    st.caption(f"Running app file: `{Path(__file__).resolve()}`")
 
-    calibration_context = {
-        "pairing_key": selected_pairing,
-        "workpiece_name": pairing_info.workpiece_name,
-        "tool_material": pairing_info.tool_material,
-        "coating": pairing_info.coating,
-        "machine_name": selected_machine,
-        "coolant_name": selected_coolant,
-        "operation_name": selected_operation or "",
-        "milling_tooling_name": selected_milling_tooling or "",
-        "holder_name": selected_holder or "",
-        "overhang_ratio": overhang_input,
-        "is_roughing": is_roughing,
-    }
     calibration_fit = None
     calibration_trials = None
-    with st.expander("Calibrate with measured tool-life trials", expanded=False):
-        st.caption(
-            "Upload measured runs for this exact material/tool and machine setup. "
-            "Use the same failure criterion for every measured life. At least 8 runs "
-            "with independently varied speed, feed, and depth are required."
+
+    st.markdown("---")
+    st.markdown("### 5. Prediction Engine")
+    engine_mode = st.radio(
+        "Life prediction engine",
+        ("Physics (Taylor)", "Hybrid physics + ML"),
+        key="engine_mode",
+        help=(
+            "Physics uses the extended Taylor equation directly. Hybrid trains a 3-model "
+            "ensemble (Gradient Boosting + Histogram Gradient Boosting + Random Forest) on "
+            "physics runs across the machine envelope plus your measured trials, then blends "
+            "it with the physics estimate at the weight you choose."
+        ),
+        **_init("engine_mode", index=1),
+    )
+    use_ml = engine_mode == "Hybrid physics + ML"
+    ml_weight_pct = 70
+    if use_ml:
+        ml_weight_pct = st.slider(
+            "ML influence",
+            min_value=10,
+            max_value=100,
+            step=5,
+            format="%d%%",
+            key="ml_blend_weight",
+            help="Blend weight given to the ML ensemble in log space; the rest keeps the physics estimate.",
+            **_init("ml_blend_weight", value=70),
         )
-        calibration_template_csv = calibration_template(calibration_context).to_csv(index=False)
-        st.download_button(
-            "Download calibration CSV template",
-            data=calibration_template_csv,
-            file_name="tool_life_calibration_template.csv",
-            mime="text/csv",
-            key="calibration_template_download",
+
+    ml_model_obj = None
+    ml_measured = ()
+    try:
+        if calibration_trials is not None:
+            ml_measured = measured_tuples_from_trials(calibration_trials)
+        ml_model_obj = _get_ml_model(
+            MLModelParams.from_setup(
+                pairing_info,
+                machine_info,
+                COOLANT_DATABASE[selected_coolant],
+                selected_operation,
+                selected_milling_tooling,
+                selected_holder,
+            ),
+            ml_measured,
         )
-        st.caption(
-            "Fill one row per completed tool-life trial. Keep the setup columns unchanged; "
-            "enter cutting speed (m/min), feed (mm/rev or mm/tooth), depth (mm), and measured "
-            "life (min). Only matching setup rows are used."
-        )
-        calibration_file = st.file_uploader(
-            "Upload completed tool-life trials CSV",
-            type=["csv"],
-            key="tool_life_calibration_upload",
-        )
-        if calibration_file is not None:
-            try:
-                trial_data = pd.read_csv(BytesIO(calibration_file.getvalue()))
-                setup_life_multiplier = calculate_tool_life_multiplier(
-                    pairing_info,
-                    machine_info,
-                    COOLANT_DATABASE[selected_coolant],
-                    is_roughing=is_roughing,
-                    operation_name=selected_operation,
-                    milling_tooling_name=selected_milling_tooling,
-                    holder_name=selected_holder,
-                    overhang_ratio=overhang_input,
-                )
-                calibration_fit = fit_taylor_model(
-                    trial_data,
-                    calibration_context,
-                    setup_life_multiplier,
-                )
-                calibration_trials = matching_calibration_trials(
-                    trial_data,
-                    calibration_context,
-                )
-                pairing_info = replace(
-                    pairing_info,
-                    taylor_C=calibration_fit.taylor_C,
-                    taylor_n=calibration_fit.taylor_n,
-                    taylor_x=calibration_fit.taylor_x,
-                    taylor_y=calibration_fit.taylor_y,
-                    v_min=calibration_fit.speed_min,
-                    v_max=calibration_fit.speed_max,
-                    f_min=calibration_fit.feed_min,
-                    f_max=calibration_fit.feed_max,
-                    ap_min=calibration_fit.depth_min,
-                    ap_max=calibration_fit.depth_max,
-                )
-                st.success(
-                    f"Applied fit to {calibration_fit.runs_used} matching runs "
-                    f"(in-sample R²={calibration_fit.r_squared:.3f}; "
-                    f"in-sample log-RMSE={calibration_fit.log_rmse:.3f}; "
-                    f"leave-one-out R²={calibration_fit.loo_r_squared:.3f}; "
-                    f"leave-one-out log-RMSE={calibration_fit.loo_log_rmse:.3f}). "
-                    "Predictions and optimized scenarios now use these fitted Taylor constants."
-                )
-            except (ValueError, pd.errors.ParserError, UnicodeDecodeError) as exc:
-                st.error(
-                    f"Calibration was not applied: {exc} The built-in model remains active."
-                )
+        if use_ml:
+            st.caption(
+                f"ML engine ready — {ml_model_obj.n_train:,} training runs "
+                f"({ml_model_obj.n_measured} measured anchors), "
+                f"holdout R² {ml_model_obj.test_r_squared:.3f} vs physics."
+            )
+    except Exception as exc:
+        ml_model_obj = None
+        if use_ml:
+            _msg = (
+                "scikit-learn could not be loaded in this Python environment"
+                if isinstance(exc, RuntimeError)
+                else f"{type(exc).__name__}: {exc}"
+            )
+            st.caption(
+                f"⚠️ ML engine unavailable — physics-only predictions active ({_msg}). "
+                "See the ML Intelligence tab for details."
+            )
 
 
 # Perform Predictions & Optimization
@@ -1363,6 +1410,39 @@ pred = predict_tool_wear(
     milling_tooling_name=selected_milling_tooling,
     holder_name=selected_holder,
     overhang_ratio=overhang_input,
+)
+
+ml_estimate = None
+blended_life = None
+if ml_model_obj is not None:
+    ml_estimate = predict_life(
+        ml_model_obj, vc_input, feed_input, ap_input, overhang_input, is_roughing
+    )
+    if use_ml:
+        blended_life = blend_lives(
+            pred.tool_life_minutes, ml_estimate.life_min, ml_weight_pct / 100.0
+        )
+
+display_life = blended_life if blended_life is not None else pred.tool_life_minutes
+display_rul = (
+    max(0.0, blended_life - current_time_input)
+    if blended_life is not None
+    else pred.rul_minutes
+)
+display_rul_pct = (
+    max(0.0, min(100.0, 100.0 * display_rul / max(blended_life, 1e-9)))
+    if blended_life is not None
+    else pred.rul_percentage
+)
+display_vb = (
+    get_current_flank_wear(pred.pairing, blended_life, current_time_input, is_roughing)
+    if blended_life is not None
+    else pred.current_vb_mm
+)
+display_volume = (
+    pred.mrr_cm3_min * blended_life
+    if blended_life is not None
+    else pred.total_volume_cut_cm3
 )
 
 opt_report = optimize_tool_wear(
@@ -1386,8 +1466,21 @@ minimum_cost_point = None
 
 # Main Content Area Header
 st.markdown("<div class='main-header'>⚙️ Machining Tool Wear & Life Intelligence Dashboard</div>", unsafe_allow_html=True)
+_engine_label = (
+    f"Hybrid physics + ML ({ml_weight_pct}% blend)"
+    if (use_ml and ml_model_obj is not None)
+    else "Physics (Taylor) engine"
+)
+_engine_help = (
+    "Predictions combine the Extended-Taylor physics model with a locally trained "
+    "ML estimator."
+    if use_ml and ml_model_obj is not None
+    else "Predictions use the Extended-Taylor physics model only."
+)
 st.markdown(
-    f"<div class='sub-header'>Forecasting flank wear ($VB$), Remaining Useful Life (RUL), and physics-driven wear minimization. Calibrate the model with your measured tool-life trials for your setup.</div>",
+    f"<div class='sub-header'>{pred.pairing.workpiece_name} · {pred.machine_name} · "
+    f"{pred.operation_name or 'General machining'} · vc {pred.vc:.0f} m/min"
+    f"<span class='engine-badge' title='{_engine_help}'>{_engine_label}</span></div>",
     unsafe_allow_html=True
 )
 
@@ -1396,12 +1489,17 @@ st.markdown(
 c1, c2, c3, c4, c5 = st.columns(5)
 
 with c1:
+    life_subtext = (
+        f"Hybrid ML {ml_weight_pct}% · band {ml_estimate.band_low_min:.0f}–{ml_estimate.band_high_min:.0f} min"
+        if blended_life is not None
+        else f"Until VB reaches {pred.vb_threshold_mm:.2f} mm"
+    )
     st.markdown(
         f"""
         <div class='kpi-card'>
             <div class='kpi-title'>Predicted Tool Life</div>
-            <div class='kpi-value'>{pred.tool_life_minutes:.1f} <span style='font-size:1.1rem;'>min</span></div>
-            <div class='kpi-subtext'>Until VB reaches {pred.vb_threshold_mm:.2f} mm</div>
+            <div class='kpi-value'>{display_life:.1f} <span style='font-size:1.1rem;'>min</span></div>
+            <div class='kpi-subtext'>{life_subtext}</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -1410,15 +1508,15 @@ with c1:
 with c2:
     status_color = (
         CHART_COLORS["green"]
-        if pred.rul_percentage > 35
-        else (CHART_COLORS["warning"] if pred.rul_percentage > 12 else CHART_COLORS["danger"])
+        if display_rul_pct > 35
+        else (CHART_COLORS["warning"] if display_rul_pct > 12 else CHART_COLORS["danger"])
     )
     st.markdown(
         f"""
         <div class='kpi-card'>
             <div class='kpi-title'>Remaining Useful Life</div>
-            <div class='kpi-value' style='color:{status_color};'>{pred.rul_minutes:.1f} <span style='font-size:1.1rem;'>min</span></div>
-            <div class='kpi-subtext'>{pred.rul_percentage:.0f}% Life Left ({pred.current_time_min:.0f}m elapsed)</div>
+            <div class='kpi-value' style='color:{status_color};'>{display_rul:.1f} <span style='font-size:1.1rem;'>min</span></div>
+            <div class='kpi-subtext'>{display_rul_pct:.0f}% Life Left ({pred.current_time_min:.0f}m elapsed)</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -1429,7 +1527,7 @@ with c3:
         f"""
         <div class='kpi-card'>
             <div class='kpi-title'>Flank Wear (VB)</div>
-            <div class='kpi-value'>{pred.current_vb_mm:.3f} <span style='font-size:1.1rem;'>mm</span></div>
+            <div class='kpi-value'>{display_vb:.3f} <span style='font-size:1.1rem;'>mm</span></div>
             <div class='kpi-subtext'>Limit: {pred.vb_threshold_mm:.2f} mm (ISO 3685)</div>
         </div>
         """,
@@ -1442,7 +1540,7 @@ with c4:
         <div class='kpi-card'>
             <div class='kpi-title'>Removal Rate (MRR)</div>
             <div class='kpi-value'>{pred.mrr_cm3_min:.1f} <span style='font-size:1.1rem;'>cm³/m</span></div>
-            <div class='kpi-subtext'>Total Vol: {pred.total_volume_cut_cm3:.0f} cm³</div>
+            <div class='kpi-subtext'>Total Vol: {display_volume:.0f} cm³</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -1473,11 +1571,13 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # Tab Navigation
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📈 Tool Life & Wear Progression (Graphical)",
-    "🎯 How to Minimize Tool Wear (Optimization)",
-    "📚 Research, standards & evidence",
-    "📊 Scenario Comparison & Data Export"
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📈 Tool Life & Wear",
+    "🎯 Optimization & Cost",
+    "📚 Research & Evidence",
+    "📊 Scenarios & Export",
+    "🧠 ML Intelligence",
+    "📥 Upload Readings"
 ])
 
 
@@ -1570,6 +1670,31 @@ with tab1:
         ),
     ))
 
+    # Hybrid ML wear path (same wear shape, stretched to the blended life)
+    if use_ml and blended_life is not None and pred.tool_life_minutes > 0:
+        t_blend = t_arr * (blended_life / pred.tool_life_minutes)
+        fig_wear.add_trace(go.Scatter(
+            x=t_blend,
+            y=vb_total,
+            mode='lines',
+            name=f'Hybrid ML path ({ml_weight_pct}% ML)',
+            line=dict(color=CHART_COLORS["purple"], width=2.5, dash="dash",
+                      shape="spline", smoothing=0.35),
+            hovertemplate='Time: %{x:.1f} min<br>Flank Wear VB: %{y:.3f} mm<extra></extra>'
+        ))
+        fig_wear.add_trace(go.Scatter(
+            x=[blended_life],
+            y=[pred.vb_threshold_mm],
+            mode='markers',
+            name='Blended Life Limit',
+            marker=dict(size=11, color=CHART_COLORS["purple"], symbol='circle-open',
+                        line=dict(width=2)),
+            hovertemplate=(
+                f"Blended tool life ({ml_weight_pct}% ML)<br>"
+                "Time: %{x:.1f} min<extra></extra>"
+            ),
+        ))
+
     fig_wear.update_layout(
         xaxis_title="Machining time (min)",
         yaxis_title="Flank wear land width VB (mm)",
@@ -1584,6 +1709,13 @@ with tab1:
         config=PLOTLY_CONFIG,
         key="flank_wear_chart",
     )
+    if use_ml and ml_estimate is not None:
+        st.caption(
+            f"🧠 **Hybrid engine active** — ML ensemble estimate {ml_estimate.life_min:.0f} min "
+            f"(80% band {ml_estimate.band_low_min:.0f}–{ml_estimate.band_high_min:.0f}), "
+            f"blended {ml_weight_pct}% with the physics Taylor model. "
+            "Dashed curve: resulting wear path."
+        )
 
     # Section 2: Sensitivity Analysis (Two Columns)
     col_g1, col_g2 = st.columns(2)
@@ -3162,11 +3294,14 @@ with tab4:
 
     summary_df = pd.DataFrame([
         {
-            "Scenario": "Current Setting",
+            "Scenario": (
+                "Current Setting (ML hybrid)"
+                if blended_life is not None else "Current Setting (Physics)"
+            ),
             "Speed (m/min)": pred.vc,
             f"Feed ({op_info.feed_unit})": pred.feed,
             "Depth ap (mm)": pred.ap,
-            "Tool Life (min)": round(pred.tool_life_minutes, 1),
+            "Tool Life (min)": round(display_life, 1),
             "MRR (cm³/min)": round(pred.mrr_cm3_min, 2),
             "Life Gain (%)": "0.0%",
             "Productivity Change (%)": "0.0%"
@@ -3330,3 +3465,252 @@ with tab4:
         "total_volume_removed_cm3": pred.total_volume_cut_cm3,
         "springer_reference_doi": pred.pairing.springer_ref.doi
     })
+
+
+# ==============================================================================
+# TAB 5: ML Intelligence
+# ==============================================================================
+with tab5:
+    st.subheader("🧠 ML Intelligence — Hybrid Physics + Ensemble Learning")
+    st.caption(
+        "The ML engine trains live on physics-model runs sampled across this machine's full "
+        "cutting envelope. Training runs entirely on this computer — no data leaves the machine."
+    )
+
+    if ml_model_obj is None:
+        st.info(
+            "ML engine unavailable — scikit-learn could not be loaded in this Python "
+            "environment, so the dashboard is running on the pure physics (Taylor) engine. "
+            "To restore ML: python -m pip install --force-reinstall scikit-learn",
+            icon="⚠️",
+        )
+    else:
+        ml = ml_model_obj
+        _measured_error_label = (
+            f"{ml.measured_median_abs_pct_error:.1f}%"
+            if ml.measured_median_abs_pct_error is not None
+            else "N/A - no measured trials"
+        )
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Physics runs trained on", f"{ml.n_train:,}")
+        m2.metric("Holdout R² (vs physics)", f"{ml.test_r_squared:.3f}")
+        m3.metric("Holdout RMSE (log scale)", f"{ml.test_rmse_pct:.1f}%")
+        m4.metric("Measured anchors used", f"{ml.n_measured}")
+        m5.metric("Measured-trial error (median)", _measured_error_label)
+        st.download_button(
+            "Download ML forecast PDF (current setup)",
+            data=_build_pdf_report(summary_df, pred, calibration_fit, research_report_evidence),
+            file_name=f"ml_tool_wear_forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            mime="application/pdf",
+            key="download_ml_forecast_pdf",
+            help="A detailed PDF for the current settings, including the active ML-assisted forecast and scenario comparison.",
+        )
+
+        st.markdown("#### Tool Life vs Cutting Speed — Physics vs ML")
+        st.caption(
+            "Both curves at your current feed, depth of cut, overhang and operation mode. "
+            "The shaded band is the ML 80% uncertainty interval (log scale). "
+            "The dashed purple path includes the measured-trial bias correction."
+        )
+        _vc_sweep = np.linspace(
+            max(10.0, 0.25 * vc_input), machine_info.max_vc_m_per_min, 40
+        )
+        _phys_sweep = np.array([
+            calculate_tool_life(
+                pairing_info,
+                machine_info,
+                COOLANT_DATABASE[selected_coolant],
+                vc=float(v),
+                feed=feed_input,
+                ap=ap_input,
+                is_roughing=is_roughing,
+                operation_name=selected_operation,
+                milling_tooling_name=selected_milling_tooling,
+                holder_name=selected_holder,
+                overhang_ratio=overhang_input,
+            )
+            for v in _vc_sweep
+        ])
+        _ml_life_sweep, _ml_low_sweep, _ml_high_sweep = predict_lives(
+            ml, _vc_sweep, feed=feed_input, ap=ap_input,
+            overhang=overhang_input, is_roughing=is_roughing,
+        )
+
+        fig_ml = go.Figure()
+        fig_ml.add_trace(go.Scatter(
+            x=_vc_sweep, y=_phys_sweep,
+            mode='lines', name='Physics (Extended Taylor)',
+            line=dict(color=CHART_COLORS["primary"], width=3, shape="spline", smoothing=0.3),
+            hovertemplate='vc: %{x:.0f} m/min<br>Life: %{y:.1f} min<extra></extra>'
+        ))
+        fig_ml.add_trace(go.Scatter(
+            x=np.concatenate([_vc_sweep, _vc_sweep[::-1]]),
+            y=np.concatenate([_ml_high_sweep, _ml_low_sweep[::-1]]),
+            mode='lines', name='ML 80% band', showlegend=True,
+            line=dict(width=0),
+            fillcolor=CHART_COLORS["purple"],
+            fill='toself', opacity=0.18,
+            hovertemplate='vc: %{x:.0f} m/min<br>Band edge: %{y:.1f} min<extra></extra>'
+        ))
+        fig_ml.add_trace(go.Scatter(
+            x=_vc_sweep, y=np.asarray(_ml_life_sweep),
+            mode='lines', name='ML ensemble (bias-corrected)',
+            line=dict(color=CHART_COLORS["purple"], width=2.5, dash="dash",
+                      shape="spline", smoothing=0.3),
+            hovertemplate='vc: %{x:.0f} m/min<br>ML life: %{y:.1f} min<extra></extra>'
+        ))
+        fig_ml.add_trace(go.Scatter(
+            x=[vc_input], y=[display_life],
+            mode='markers+text', name='Current setup',
+            text=[f"{display_life:.0f} min"], textposition="top center",
+            marker=dict(size=12, color=status_color, symbol='diamond',
+                        line=dict(color="white", width=1.5)),
+            hovertemplate='Current setup<br>vc: %{x:.0f} m/min<br>Life: %{y:.1f} min<extra></extra>'
+        ))
+        fig_ml.update_layout(
+            xaxis_title="Cutting speed vc (m/min)",
+            yaxis_title="Tool life (min, log scale)",
+            yaxis_type="log",
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+        _polish_chart(fig_ml, height=470, hovermode="x unified")
+        st.plotly_chart(fig_ml, width="stretch", config=PLOTLY_CONFIG, key="ml_speed_sweep")
+
+        f1, f2 = st.columns(2)
+        with f1:
+            st.markdown("#### What drives the prediction")
+            st.caption("Combined feature importances across the three ensemble members (higher = more influence on predicted life).")
+            if ml.feature_importances:
+                _fi = dict(sorted(
+                    ml.feature_importances, key=lambda kv: kv[1], reverse=True
+                ))
+                fig_fi = go.Figure(go.Bar(
+                    x=list(_fi.values()),
+                    y=list(_fi.keys()),
+                    orientation='h',
+                    marker_color=CHART_COLORS["primary"],
+                    hovertemplate='%{y}: %{x:.3f}<extra></extra>'
+                ))
+                fig_fi.update_layout(
+                    xaxis_title="Relative importance",
+                    yaxis=dict(autorange="reversed"),
+                )
+                _polish_chart(fig_fi, height=320, hovermode="y unified")
+                st.plotly_chart(fig_fi, width="stretch", config=PLOTLY_CONFIG, key="ml_feature_importance")
+        with f2:
+            st.markdown("#### Measured-trial anchoring")
+            if ml.n_measured == 0:
+                st.info(
+                    "No measured tool-life anchors are active. The ML estimate is trained on "
+                    "the selected setup's physics-model runs.",
+                    icon="📌",
+                )
+            else:
+                _bias_pct = (10.0 ** ml.bias_log10 - 1.0) * 100.0 if ml.bias_log10 else 0.0
+                st.metric(
+                    "Median bias correction applied",
+                    f"{_bias_pct:+.1f}%",
+                    help="Shift applied to ML predictions so the ensemble matches your "
+                         "measured trials (applied only when 3+ anchors are available).",
+                )
+                st.metric(
+                    "Median absolute error on measured trials",
+                    f"{ml.measured_median_abs_pct_error:.1f}%",
+                    help="After bias correction. This is the engine's real-world accuracy signal.",
+                )
+                st.caption(
+                    "Anchors are weighted heavily during training and pull the ensemble "
+                    "toward measured reality — add more trials to tighten this further."
+                )
+
+        with st.expander("How this engine works (methodology)"):
+            st.markdown(
+                f"""
+**Architecture.** The dashboard uses the best locally available ensemble: the
+scikit-learn gradient/tree ensemble when permitted by Windows, otherwise a
+three-member regularized NumPy regression ensemble. Both predict log₁₀(tool life) from
+log₁₀(vc), log₁₀(feed), log₁₀(ap), overhang L/D, and a roughing flag.
+
+**Training data.** {ml.n_sim:,} physics runs sampled by Latin-hypercube design across
+this machine's speed/feed/depth envelope, with the overhang range stratified around
+the L/D = 3 rigidity kink. Labels come from the same Extended-Taylor model used
+everywhere in this app — the ML learns its shape at {ml.n_train:,} points.
+
+**Uncertainty.** An 80% conformal band is built from holdout residuals
+(half-width {ml.band_halfwidth_log:.3f} in log₁₀ minutes), widened by measured-trial
+spread when anchors exist.
+
+**Anchoring.** {ml.n_measured} measured anchors are active. A median bias correction
+is applied when at least 3 anchors exist (bias: {ml.bias_log10:+.4f} log₁₀ min).
+
+**Honest accuracy note.** Holdout R² = {ml.test_r_squared:.3f} measures agreement
+with the *physics model*, not with reality — it shows the ensemble faithfully
+reproduces the physics surface. The only real-world accuracy signals are the
+measured-trial metrics above (median error {_measured_error_label}).
+All randomness is fixed (seed 42); results are deterministic for a given setup.
+"""
+            )
+
+
+# ==============================================================================
+# TAB 6: Uploaded readings batch analysis
+# ==============================================================================
+with tab6:
+    st.subheader("📥 Analyze uploaded machining readings")
+    st.caption("Upload a CSV, Excel workbook, JSON records file, TSV/TXT, PDF, or JPG/PNG image. The active hybrid ML model scores every reviewed reading locally and produces a professional PDF report.")
+    st.markdown("**Required columns:** cutting speed (`Vc` or `speed`), `feed`, and depth of cut (`ap` or `depth`). Optional: elapsed time, overhang, roughing, and measured life.")
+    upload = st.file_uploader("Upload readings", type=["csv", "xlsx", "xls", "json", "tsv", "txt", "pdf", "jpg", "jpeg", "png"], key="batch_readings_upload")
+    if upload is not None:
+        if ml_model_obj is None:
+            st.error("The ML model is unavailable in this environment, so uploaded readings cannot be analyzed yet.")
+        else:
+            try:
+                needs_manual_entry = False
+                try:
+                    raw_readings = load_readings(upload.name, upload.getvalue())
+                except ValueError as extraction_error:
+                    raw_readings = manual_readings_template()
+                    needs_manual_entry = True
+                    st.warning(str(extraction_error))
+                    if upload.type and upload.type.startswith("image/"):
+                        st.image(upload.getvalue(), caption="Uploaded reading image - transcribe values into the table below.")
+                    else:
+                        st.download_button("Download uploaded source for review", upload.getvalue(), file_name=upload.name, key="source_document_download")
+                st.info("Readings were extracted locally and will be analyzed automatically. Review the detected values below if you want to correct them first.")
+                reviewed_readings = st.data_editor(
+                    raw_readings, hide_index=True, width="stretch", num_rows="dynamic",
+                    key=f"review_{upload.name}",
+                )
+                analyze_now = not needs_manual_entry or st.button("Analyze entered readings", type="primary", key=f"analyze_{upload.name}")
+                if analyze_now:
+                    clean_readings, column_map = standardize_readings(reviewed_readings)
+                    if "spindle_speed_rpm" in clean_readings.columns:
+                        _upload_tool_diameter = (
+                            float(MILLING_TOOLING_DATABASE[selected_milling_tooling].diameter_mm)
+                            if selected_milling_tooling else 12.0
+                        )
+                        clean_readings["cutting_speed_m_min"] = (
+                            np.pi * _upload_tool_diameter * clean_readings["spindle_speed_rpm"] / 1000.0
+                        )
+                        column_map["cutting_speed_m_min"] = (
+                            f"calculated from spindle RPM using {_upload_tool_diameter:.1f} mm selected/default cutter diameter"
+                        )
+                    report_readings = analyze_readings(
+                        clean_readings,
+                        lambda vc, feed, ap, overhang, roughing: predict_life(ml_model_obj, vc, feed, ap, overhang, roughing),
+                        overhang_input, is_roughing,
+                    )
+                    st.success(f"Analyzed {len(report_readings)} valid reading(s) using the active hybrid ML model.")
+                    st.caption("Detected column mapping: " + ", ".join(f"{target} <- {source}" for target, source in column_map.items()))
+                    st.dataframe(report_readings, hide_index=True, width="stretch")
+                    alert_count = int((report_readings["Status"] == "Replace / inspect").sum())
+                    a1, a2, a3 = st.columns(3)
+                    a1.metric("Average predicted life", f"{report_readings['Predicted life (min)'].mean():.1f} min")
+                    a2.metric("Average remaining life", f"{report_readings['Remaining life (min)'].mean():.1f} min")
+                    a3.metric("Inspection / replacement alerts", alert_count)
+                    st.download_button("Download analyzed readings (CSV)", report_readings.to_csv(index=False).encode("utf-8"), file_name=f"analyzed_readings_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", mime="text/csv", key="batch_analysis_csv")
+                    batch_pdf = build_batch_pdf(report_readings, upload.name, f"Setup: {pairing_info.workpiece_name} | {pairing_info.tool_material} | {selected_machine} | {selected_coolant}")
+                    st.download_button("Download professional PDF report", batch_pdf, file_name=f"machining_readings_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf", mime="application/pdf", key="batch_analysis_pdf")
+            except Exception as exc:
+                st.error(f"Could not analyze this file: {exc}")
