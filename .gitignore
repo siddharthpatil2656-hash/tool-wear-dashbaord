@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment and secrets
+.env
+.streamlit/secrets.toml
+
+# Executables and archives
+cloudflared.exe
+files.zip
