@@ -1,0 +1,11 @@
+[
+  {
+    "title": "Characterization and optimization of cutting depth in passive-compliant robotic belt grinding",
+    "authors": "Torres-Izu, Ramon; Aginaga, Jokin; Mata, Sara; Barrenetxea, David; Inziarte, Ibai",
+    "publication": "The International Journal of Advanced Manufacturing Technology",
+    "date": "2025",
+    "doi": "10.1007/s00170-024-14957-y",
+    "url": "https://doi.org/10.1007/s00170-024-14957-y",
+    "abstract": "Robotic belt grinding offers numerous advantages, such as operational versatility and the ability to work in complex spaces. Its implementation in the modern industry aims to surpass manual grinding tasks and enhance overall productivity. Among these processes, compliant techniques offer adaptive solutions, where the tool can adapt to complex surfaces, besides providing more efficient grinding solutions for industrial applications. This paper focuses on an easy characterization of the cutting depth in a robotic belt grinding application using a portable passive-compliant tool. To this end, a cutting depth belt grinding model based on process parameters is presented. Experimental tests are conducted to correlate the depth of material removal with the belt wear behavior and analysis on Inconel 718 specimens. Then, the solution presented is validated through additional tests. Furthermore, the model is utilized for a productivity optimization that takes into account the belt wear, searching for optimal process variables that minimize cycle time."
+  }
+]

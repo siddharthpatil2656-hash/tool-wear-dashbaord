@@ -5,6 +5,7 @@ Material Removal Rate (MRR), along with concrete, actionable engineering recomme
 """
 
 from dataclasses import dataclass
+import math
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
@@ -47,8 +48,9 @@ class WearMinimizationReport:
 
     # Optimized strategies
     balanced_strategy: OptimizedParameters   # Maintains MRR, vastly improves life
-    max_life_strategy: OptimizedParameters   # Maximizes tool life (lights-out machining)
+    max_life_strategy: OptimizedParameters   # Maximizes model-predicted tool life
     high_efficiency_strategy: OptimizedParameters  # Modest life gain, boosts MRR
+    productivity_frontier_options: List[Dict[str, float]]
 
     # Categorized recommendations
     cutting_parameter_tips: List[str]
@@ -59,6 +61,137 @@ class WearMinimizationReport:
     # Pareto trade-off curve (Tool Life vs MRR)
     pareto_mrr: List[float]
     pareto_tool_life: List[float]
+
+
+def _search_productivity_frontier(
+    pairing: MaterialToolPairing,
+    machine,
+    coolant,
+    target_mrr: float,
+    current_life: float,
+    is_roughing: bool,
+    operation_name: Optional[str],
+    milling_tooling_name: Optional[str],
+    holder_name: Optional[str],
+    overhang_ratio: Optional[float],
+) -> List[Dict[str, float]]:
+    """Maximize predicted life at fixed MRR targets within active model limits."""
+    speed_min = max(1.0, pairing.v_min)
+    speed_max = min(pairing.v_max, machine.max_vc_m_per_min)
+    feed_min = max(0.001, pairing.f_min)
+    feed_max = min(pairing.f_max, machine.max_feed_mm)
+    depth_min = max(0.05, pairing.ap_min)
+    depth_max = min(pairing.ap_max, machine.max_ap_mm)
+    if speed_min >= speed_max or feed_min >= feed_max or depth_min > depth_max:
+        return []
+
+    best = None
+    speed_values = np.linspace(speed_min, speed_max, 41)
+    feed_values = np.linspace(feed_min, feed_max, 41)
+    for speed in speed_values:
+        for feed in feed_values:
+            mrr_per_depth = calculate_mrr(
+                float(speed),
+                float(feed),
+                1.0,
+                operation_name=operation_name,
+                milling_tooling_name=milling_tooling_name,
+            )
+            if mrr_per_depth <= 0:
+                continue
+            depth = target_mrr / mrr_per_depth
+            if not depth_min <= depth <= depth_max:
+                continue
+            life = calculate_tool_life(
+                pairing,
+                machine,
+                coolant,
+                float(speed),
+                float(feed),
+                float(depth),
+                is_roughing,
+                operation_name=operation_name,
+                milling_tooling_name=milling_tooling_name,
+                holder_name=holder_name,
+                overhang_ratio=overhang_ratio,
+            )
+            if best is None or life > best["tool_life_min"]:
+                actual_mrr = calculate_mrr(
+                    float(speed),
+                    float(feed),
+                    float(depth),
+                    operation_name=operation_name,
+                    milling_tooling_name=milling_tooling_name,
+                )
+                expected_life = calculate_tool_life(
+                    pairing,
+                    machine,
+                    coolant,
+                    float(speed),
+                    float(feed),
+                    float(depth),
+                    is_roughing,
+                    operation_name=operation_name,
+                    milling_tooling_name=milling_tooling_name,
+                    holder_name=holder_name,
+                    overhang_ratio=overhang_ratio,
+                )
+                values = (speed, feed, depth, actual_mrr, life, expected_life)
+                if not all(math.isfinite(float(value)) for value in values):
+                    continue
+                mrr_error_pct = abs(actual_mrr - target_mrr) / max(target_mrr, 1e-9) * 100.0
+                life_recheck_error_pct = (
+                    abs(expected_life - life) / max(life, 1e-9) * 100.0
+                )
+                if mrr_error_pct > 1.0 or life_recheck_error_pct > 0.1:
+                    continue
+                perturbation_life = []
+                for parameter, value, lower, upper in (
+                    ("speed", float(speed), speed_min, speed_max),
+                    ("feed", float(feed), feed_min, feed_max),
+                    ("depth", float(depth), depth_min, depth_max),
+                ):
+                    for direction in (-1.0, 1.0):
+                        adjusted = {
+                            "speed": float(speed),
+                            "feed": float(feed),
+                            "depth": float(depth),
+                        }
+                        adjusted[parameter] = min(
+                            upper,
+                            max(lower, value * (1.0 + direction * 0.02)),
+                        )
+                        perturbation_life.append(calculate_tool_life(
+                            pairing,
+                            machine,
+                            coolant,
+                            adjusted["speed"],
+                            adjusted["feed"],
+                            adjusted["depth"],
+                            is_roughing,
+                            operation_name=operation_name,
+                            milling_tooling_name=milling_tooling_name,
+                            holder_name=holder_name,
+                            overhang_ratio=overhang_ratio,
+                        ))
+                sensitivity_pct = max(
+                    abs(neighbor_life - life) / max(life, 1e-9) * 100.0
+                    for neighbor_life in perturbation_life
+                )
+                best = {
+                    "vc": float(speed),
+                    "feed": float(feed),
+                    "ap": float(depth),
+                    "tool_life_min": float(life),
+                    "mrr_cm3_min": float(actual_mrr),
+                    "tool_life_gain_pct": float(
+                        (life - current_life) / current_life * 100.0
+                    ),
+                    "mrr_error_pct": float(mrr_error_pct),
+                    "recheck_error_pct": float(life_recheck_error_pct),
+                    "local_sensitivity_pct": float(sensitivity_pct),
+                }
+    return [best] if best is not None else []
 
 
 def generate_pareto_curve(
@@ -74,7 +207,7 @@ def generate_pareto_curve(
 ) -> Tuple[List[float], List[float]]:
     """
     Generates Pareto optimal frontier between Tool Life (min) and Material Removal Rate (cm3/min).
-    Varies cutting speed across the Springer empirical boundary.
+    Varies cutting speed across the active model or measured-trial boundary.
     """
     machine = MACHINE_DATABASE[machine_name]
     coolant = COOLANT_DATABASE[coolant_name]
@@ -121,9 +254,9 @@ def optimize_tool_wear(
     overhang_ratio: Optional[float] = None,
 ) -> WearMinimizationReport:
     """
-    Analyzes current machining parameters and derives mathematically optimized
-    alternatives to minimize tool wear while maintaining production goals.
-    Accepts either a standard pairing_key or a custom synthesized pairing.
+    Analyzes current machining parameters and derives model-screened alternatives
+    to minimize predicted wear while maintaining production goals. Results are
+    candidates for validation, not verified machining recipes.
     """
     if custom_pairing is not None:
         pairing = custom_pairing
@@ -154,6 +287,24 @@ def optimize_tool_wear(
         operation_name=operation_name,
         milling_tooling_name=milling_tooling_name,
     )
+    productivity_frontier_options = []
+    for target_pct in (80, 100, 120):
+        target_mrr = base_mrr * target_pct / 100.0
+        options = _search_productivity_frontier(
+            pairing=pairing,
+            machine=machine,
+            coolant=coolant,
+            target_mrr=target_mrr,
+            current_life=base_life,
+            is_roughing=is_roughing,
+            operation_name=operation_name,
+            milling_tooling_name=milling_tooling_name,
+            holder_name=holder_name,
+            overhang_ratio=overhang_ratio,
+        )
+        for option in options:
+            option["target_productivity_pct"] = float(target_pct)
+            productivity_frontier_options.append(option)
 
     # Strategy 1: Productivity-Neutral Optimization (The "Golden Trade-off")
     # In Taylor's law, Vc has exponent 1/n (~3.5 to 5.0), whereas ap has exponent y/n (~0.7 to 1.1).
@@ -187,12 +338,11 @@ def optimize_tool_wear(
         mrr_cm3_min=round(mrr_balanced, 2),
         tool_life_gain_pct=round(((life_balanced - base_life) / base_life) * 100.0, 1),
         mrr_change_pct=round(((mrr_balanced - base_mrr) / base_mrr) * 100.0, 1),
-        strategy_name="Productivity-Neutral Wear Reduction (Recommended)",
-        rationale="Exploits the differential Taylor exponents: reduces thermal wear by decreasing cutting speed by 18%, while increasing depth of cut to maintain 100% of material removal productivity."
+        strategy_name="Productivity-Neutral Wear Reduction (Model Estimate)",
+        rationale="Taylor-model candidate: lowers cutting speed and compensates with depth/feed to target current MRR. The estimated life gain depends on model fit and machine/tool constraints."
     )
 
-    # Strategy 2: Maximum Tool Life (Lights-Out / High-Reliability Mode)
-    # For critical components or overnight machining where an unexpected tool break is catastrophic.
+    # Strategy 2: Maximize model-predicted life; this is not a breakage-risk model.
     opt_vc_maxlife = max(pairing.v_min * 1.05, current_vc * 0.70)
     opt_feed_maxlife = max(pairing.f_min * 1.1, current_feed * 0.85)
     opt_ap_maxlife = max(pairing.ap_min, current_ap * 0.90)
@@ -218,8 +368,8 @@ def optimize_tool_wear(
         mrr_cm3_min=round(mrr_maxlife, 2),
         tool_life_gain_pct=round(((life_maxlife - base_life) / base_life) * 100.0, 1),
         mrr_change_pct=round(((mrr_maxlife - base_mrr) / base_mrr) * 100.0, 1),
-        strategy_name="Maximum Endurance Mode (Lights-Out Machining)",
-        rationale="Prioritizes operational stability and zero premature insert failure over cycle time. Drastically lowers interface temperatures below the chemical diffusion threshold."
+        strategy_name="Maximum Predicted Tool Life (Model Estimate)",
+        rationale="Prioritizes model-predicted tool life over throughput. The model does not predict tool-breakage probability or guarantee unattended machining safety."
     )
 
     # Strategy 3: High-Efficiency (Boost MRR while holding wear steady)
@@ -248,15 +398,15 @@ def optimize_tool_wear(
         mrr_cm3_min=round(mrr_he, 2),
         tool_life_gain_pct=round(((life_he - base_life) / base_life) * 100.0, 1),
         mrr_change_pct=round(((mrr_he - base_mrr) / base_mrr) * 100.0, 1),
-        strategy_name="High-Efficiency Balanced Boost",
-        rationale="Increases chip load and volumetric output while trimming speed slightly to prevent the thermal runaway barrier."
+        strategy_name="High-Efficiency Balanced Boost (Model Estimate)",
+        rationale="Explores increased feed/depth with a small speed reduction to raise modeled MRR. Confirm chip load, power, vibration, and part quality before a trial."
     )
 
     # Categorized Recommendations
     cutting_tips = [
-        f"**Cutting Speed Leverage**: In Taylor's tool life equation, cutting speed ($V_c$) has an exponent of $1/n = {1.0 / pairing.taylor_n:.2f}$. A 15% drop in $V_c$ increases tool life by approximately {((1.0 / (0.85 ** (1.0 / pairing.taylor_n))) - 1.0) * 100.0:.0f}%.",
-        f"**Depth-of-Cut Utilization**: Depth of cut ($a_p$) exponent is only {pairing.taylor_y:.2f}. You can safely increase $a_p$ to compensate for lower speeds with minimal impact on flank wear.",
-        f"**Minimum Chip Load Warning**: Never drop feed below {pairing.f_min:.3f} mm/rev; insufficient feed causes the cutting edge to rub and burnish rather than shear, accelerating flank wear.",
+        f"**Cutting-Speed Sensitivity (model estimate)**: Taylor speed exponent $1/n = {1.0 / pairing.taylor_n:.2f}$. With feed and depth held fixed, a 15% speed reduction gives an idealized life increase of {((1.0 / (0.85 ** (1.0 / pairing.taylor_n))) - 1.0) * 100.0:.0f}% under this equation; actual results require a controlled trial.",
+        f"**Depth-of-Cut Sensitivity**: The selected model's depth exponent is {pairing.taylor_y:.2f}. Increasing $a_p$ can offset lower speed in an MRR calculation, but it also raises cutting load; verify the tool-maker limit, machine power, workholding, and deflection before testing.",
+        f"**Feed Lower Bound**: The active model range starts at {pairing.f_min:.3f} in the selected operation's feed units. Going below this range is extrapolation; check the tool-maker's minimum chip thickness rather than treating this model boundary as a universal physical limit.",
     ]
 
     # Operation-specific guidance
@@ -356,6 +506,7 @@ def optimize_tool_wear(
         balanced_strategy=balanced_strat,
         max_life_strategy=max_life_strat,
         high_efficiency_strategy=he_strat,
+        productivity_frontier_options=productivity_frontier_options,
         cutting_parameter_tips=cutting_tips,
         tooling_coating_tips=tooling_tips,
         machine_vibration_tips=machine_tips,

@@ -1,13 +1,8 @@
 """
-Multi-Journal Empirical Database for Tool Life & Tool Wear Prediction.
-Taylor constants calibrated from peer-reviewed papers in:
-  - The International Journal of Advanced Manufacturing Technology (IJAMT / Springer)
-  - CIRP Annals – Manufacturing Technology (Elsevier / CIRP)
-  - International Journal of Machine Tools & Manufacture (IJMTM / Elsevier)
-  - Wear – An International Journal on the Science & Technology of Friction (Elsevier)
-  - Journal of Manufacturing Science and Engineering (JMSE / ASME)
-  - Tribology International (Elsevier)
-  - Journal of Cleaner Production (Elsevier)
+Bundled workpiece, tool, machine, coolant, and Taylor-model defaults.
+
+Reference metadata is included for discovery, but this module does not contain
+publisher datasets and its citations must be verified against publisher records.
 """
 
 from __future__ import annotations
@@ -43,8 +38,8 @@ class MaterialToolPairing:
     # Valid experimental boundary for empirical confidence
     v_min: float  # m/min
     v_max: float  # m/min
-    f_min: float  # mm/rev or mm/tooth
-    f_max: float  # mm/rev or mm/tooth
+    f_min: float  # mm/rev
+    f_max: float  # mm/rev
     ap_min: float  # mm
     ap_max: float  # mm
     # Wear model parameters
@@ -430,6 +425,106 @@ WORKPIECE_DATABASE: Dict[str, WorkpieceDefinition] = {
         primary_wear_mode="Heat-induced melting, smearing and burr formation rather than abrasive flank wear.",
         description="High-performance thermoplastic for medical and aerospace fixtures; use sharp polished edges and manage heat to preserve dimensional accuracy."
     ),
+    # --- EXPANDED MATERIAL LIBRARY ---
+    "AISI 4340 (Hardened Cr-Ni-Mo Steel)": WorkpieceDefinition(
+        key="AISI 4340", name="AISI 4340 (Hardened Cr-Ni-Mo Aircraft Steel, 36-40 HRC)",
+        iso_group="P", hardness="36 - 40 HRC", thermal_conductivity="38.0 W/m·K",
+        base_taylor_C=130.0, taylor_x=0.49, taylor_y=0.23,
+        v_rec_min=70.0, v_rec_max=200.0, f_rec_min=0.07, f_rec_max=0.30,
+        ap_rec_min=0.3, ap_rec_max=2.5,
+        primary_wear_mode="High-stress flank abrasion from nickel-alloy carbides; edge micro-flaking on entry/exit.",
+        description="High-toughness aircraft landing-gear steel. Harder and more abrasive than 4140 at equivalent hardness due to nickel content; demands thermally stable tooling."
+    ),
+    "AISI D2 (Cold-Work Tool Steel)": WorkpieceDefinition(
+        key="AISI D2", name="AISI D2 Cold-Work Tool Steel (Annealed, 220-240 HB)",
+        iso_group="P", hardness="220 - 240 HB", thermal_conductivity="20.0 W/m·K",
+        base_taylor_C=160.0, taylor_x=0.47, taylor_y=0.22,
+        v_rec_min=60.0, v_rec_max=180.0, f_rec_min=0.06, f_rec_max=0.28,
+        ap_rec_min=0.3, ap_rec_max=2.5,
+        primary_wear_mode="Severe abrasive wear from massive primary chromium carbides (M7C3, ~1800 HV).",
+        description="High-carbon high-chromium cold-work die steel. Extremely abrasive to cutting edges even in the annealed state; CVD TiCN/Al2O3 or hard turning with PCBN after hardening."
+    ),
+    "Duplex Stainless 2205 (DSS)": WorkpieceDefinition(
+        key="DSS 2205", name="Duplex Stainless Steel 2205 (UNS S32205, Austenitic-Ferritic)",
+        iso_group="M", hardness="180 - 220 HB", thermal_conductivity="19.0 W/m·K",
+        base_taylor_C=80.0, taylor_x=0.56, taylor_y=0.26,
+        v_rec_min=55.0, v_rec_max=160.0, f_rec_min=0.06, f_rec_max=0.25,
+        ap_rec_min=0.3, ap_rec_max=2.5,
+        primary_wear_mode="Severe work-hardening notch wear; high cutting forces from duplex microstructure; BUE at low speed.",
+        description="Offshore and chemical-plant duplex stainless. Higher strength than 316L with rapid strain hardening; requires rigid setups and positive-sharp inserts."
+    ),
+    "Magnesium AZ91D (Die-Cast Mg)": WorkpieceDefinition(
+        key="Mg AZ91D", name="Magnesium AZ91D (High-Purity Die-Cast Magnesium)",
+        iso_group="N", hardness="60 - 80 HB", thermal_conductivity="51.0 W/m·K",
+        base_taylor_C=2800.0, taylor_x=0.36, taylor_y=0.16,
+        v_rec_min=200.0, v_rec_max=900.0, f_rec_min=0.08, f_rec_max=0.45,
+        ap_rec_min=0.4, ap_rec_max=4.0,
+        primary_wear_mode="Minimal flank wear; edge build-up and chip ignition risk at very high speeds; burr formation.",
+        description="Ultra-lightweight structural magnesium alloy for housings and brackets. Machines easily with PCD or sharp polished carbide; strict dry-cutting fire-safety protocols required."
+    ),
+    "Brass C36000 (Free-Machining CuZn)": WorkpieceDefinition(
+        key="Brass C36000", name="Free-Machining Brass C36000 (CuZn39Pb3 Leaded)",
+        iso_group="N", hardness="80 - 110 HB", thermal_conductivity="109 W/m·K",
+        base_taylor_C=4200.0, taylor_x=0.34, taylor_y=0.15,
+        v_rec_min=150.0, v_rec_max=800.0, f_rec_min=0.06, f_rec_max=0.40,
+        ap_rec_min=0.3, ap_rec_max=3.5,
+        primary_wear_mode="Near-ideal machinability; minor flank abrasion from hard intermetallic inclusions; Pb lubricates the shear zone.",
+        description="The machinability reference standard (100% rating). Lead acts as built-in solid lubricant; uncoated sharp carbide vastly outperforms coated tools due to superior edge sharpness."
+    ),
+    "Bronze C93200 (Bearing Bronze)": WorkpieceDefinition(
+        key="Bronze C93200", name="SAE 660 Bearing Bronze C93200 (CuSn7Zn4Pb7)",
+        iso_group="N", hardness="60 - 90 HB", thermal_conductivity="59 W/m·K",
+        base_taylor_C=3200.0, taylor_x=0.36, taylor_y=0.16,
+        v_rec_min=120.0, v_rec_max=600.0, f_rec_min=0.06, f_rec_max=0.35,
+        ap_rec_min=0.3, ap_rec_max=3.0,
+        primary_wear_mode="Very mild abrasive wear; smearing of soft bronze matrix onto rake face; burr formation.",
+        description="Soft tin-lead bronze for bushings and bearings. Low cutting forces and excellent surface finish; keep edges razor-sharp and use high positive rake to avoid smearing."
+    ),
+    "Cast Al-Si A356 (Aluminum Foundry)": WorkpieceDefinition(
+        key="Al A356", name="Cast Aluminum A356 (AlSi7Mg0.3, T6 Heat-Treated)",
+        iso_group="N", hardness="75 - 95 HB", thermal_conductivity="151 W/m·K",
+        base_taylor_C=1600.0, taylor_x=0.38, taylor_y=0.17,
+        v_rec_min=200.0, v_rec_max=1000.0, f_rec_min=0.08, f_rec_max=0.45,
+        ap_rec_min=0.4, ap_rec_max=4.5,
+        primary_wear_mode="Abrasive scoring of tool face by hard primary silicon particles (especially unmodified); BUE at low speeds.",
+        description="Primary aerospace and automotive foundry alloy (wheels, structural nodes). Requires PCD or ultra-sharp polished carbide to resist silicon abrasion and prevent tearing of the soft Al matrix."
+    ),
+    "Aluminum 5083-H116 (Marine Al)": WorkpieceDefinition(
+        key="Al 5083", name="Aluminum 5083-H116 (Al-Mg Marine Plate, Non-Heat-Treatable)",
+        iso_group="N", hardness="80 - 95 HB", thermal_conductivity="117 W/m·K",
+        base_taylor_C=1250.0, taylor_x=0.40, taylor_y=0.18,
+        v_rec_min=180.0, v_rec_max=900.0, f_rec_min=0.08, f_rec_max=0.42,
+        ap_rec_min=0.4, ap_rec_max=4.0,
+        primary_wear_mode="Gummy chip formation and BUE; magnesium-rich phases mildly abrasive; workpiece surface smearing.",
+        description="High-magnesium marine and armor plate. High ductility produces long continuous chips that pack flutes; large polished chip gullets and high positive rake are essential."
+    ),
+    "AISI 1040 (Medium Carbon Steel, Normalized)": WorkpieceDefinition(
+        key="AISI 1040", name="AISI 1040 / EN8 Medium Carbon Steel (Normalized, 170-200 HB)",
+        iso_group="P", hardness="170 - 200 HB", thermal_conductivity="49.0 W/m·K",
+        base_taylor_C=250.0, taylor_x=0.50, taylor_y=0.22,
+        v_rec_min=110.0, v_rec_max=300.0, f_rec_min=0.10, f_rec_max=0.42,
+        ap_rec_min=0.5, ap_rec_max=4.0,
+        primary_wear_mode="Classic steady flank wear and rake-face crater wear above 180 m/min from diffusion into steel chip.",
+        description="Baseline machinability steel for shafts and spindles. Predictable linear wear; the reference material for comparing coating performance in continuous turning."
+    ),
+    "Ti-6Al-4V ELI (Medical Titanium)": WorkpieceDefinition(
+        key="Ti-6Al-4V ELI", name="Ti-6Al-4V ELI (Extra-Low-Interstitial Medical Grade)",
+        iso_group="S", hardness="30 - 34 HRC (275-310 HB)", thermal_conductivity="7.0 W/m·K",
+        base_taylor_C=55.0, taylor_x=0.48, taylor_y=0.21,
+        v_rec_min=35.0, v_rec_max=100.0, f_rec_min=0.05, f_rec_max=0.22,
+        ap_rec_min=0.25, ap_rec_max=2.0,
+        primary_wear_mode="Adhesive dissolution of tool material, micro-chipping, depth-of-cut notch wear; extreme chemical reactivity at edge temperature.",
+        description="Extra-low-interstitial variant for orthopedic implants. Slightly lower strength than standard Ti-6Al-4V with marginally better machinability; identical thermal and chemical wear behavior."
+    ),
+    "Beryllium Copper C17200 (BeCu)": WorkpieceDefinition(
+        key="BeCu C17200", name="Beryllium Copper C17200 (CuBe2, Age-Hardened Mold Alloy)",
+        iso_group="N", hardness="90 - 120 HB (Hardened)", thermal_conductivity="105 W/m·K",
+        base_taylor_C=950.0, taylor_x=0.39, taylor_y=0.18,
+        v_rec_min=120.0, v_rec_max=500.0, f_rec_min=0.06, f_rec_max=0.32,
+        ap_rec_min=0.3, ap_rec_max=3.0,
+        primary_wear_mode="Abrasive wear from hard beryllide intermetallic phases; BUE; fine toxic dust hazard requires extraction.",
+        description="Non-sparking, non-magnetic copper alloy for injection molds and aerospace bushings. Machines like tough aluminum; sharp PCD or polished carbide with dust extraction is mandatory."
+    ),
 }
 
 
@@ -548,6 +643,31 @@ TOOL_DATABASE: Dict[str, ToolDefinition] = {
         toughness_rating="Extreme hardness / Direction-sensitive brittleness", suitable_iso=["N"],
         incompatible_iso=["P", "M", "H", "S", "K"],
         description="Ultra-sharp single-crystal diamond for optical-grade non-ferrous finishing; never use against ferrous or nickel alloys because of chemical wear."
+    ),
+    # --- EXPANDED TOOL SUBSTRATES ---
+    "Alumina-Zirconia Ceramic (Al2O3-ZrO2)": ToolDefinition(
+        key="Alumina-Zirconia", name="Alumina-Zirconia Ceramic (Al2O3 + 10-15% ZrO2, Transformation-Toughened)",
+        category="Advanced Ceramic",
+        taylor_n=0.37, speed_factor=2.4, max_temp_c=1250.0,
+        toughness_rating="Moderate (ZrO2 phase-transformation toughening)", suitable_iso=["K", "H", "S"],
+        incompatible_iso=["N", "P"],
+        description="Zirconia inclusions absorb crack energy via stress-induced tetragonal-to-monoclinic transformation. Preferred ceramic for interrupted hard turning and CGI milling."
+    ),
+    "CVD Diamond-Coated Carbide (DCC)": ToolDefinition(
+        key="DCC", name="CVD Diamond-Coated Carbide (Micro-Crystalline Diamond Film, 10-20 µm)",
+        category="Coated Carbide (Superabrasive Film)",
+        taylor_n=0.42, speed_factor=2.0, max_temp_c=750.0,
+        toughness_rating="High (Combines carbide toughness with diamond surface)", suitable_iso=["N"],
+        incompatible_iso=["P", "M", "H", "S", "K"],
+        description="Thick CVD diamond film bonded directly to carbide end mills and inserts. 10-20x tool life of uncoated carbide in high-silicon aluminum and CFRP; film spalls if used on ferrous materials."
+    ),
+    "Cast Cobalt Alloy (Stellite 6 / Stellite 12)": ToolDefinition(
+        key="Stellite", name="Cast Cobalt-Chromium Alloy (Stellite 6 / 12, Co-Cr-W-C)",
+        category="Cast Superalloy Tool",
+        taylor_n=0.18, speed_factor=0.45, max_temp_c=900.0,
+        toughness_rating="Exceptional (Shock-resistant, wear-facing specialist)", suitable_iso=["P", "M", "N"],
+        incompatible_iso=["H", "S"],
+        description="Non-magnetic cobalt-based alloy for hot-working dies, valve seats, and cut-off/form tools. Retains hardness to 900°C with extreme galling resistance; use for specialized form turning and friction drilling."
     ),
 }
 
@@ -739,16 +859,16 @@ def synthesize_custom_pairing(
         k_runin=0.15,
         beta_tertiary=0.035,
         springer_ref=SpringerReference(
-            title=f"Synthesized Taylor Model: {wp.name} with {tool.name} ({coating.name})",
-            authors="Derived by this dashboard from decoupled workpiece/tool/coating datasets",
-            journal="Composite estimate — not a single published paper",
-            year=2026,
-            doi="N/A (synthesized; see Evidence tab for supporting literature)",
-            volume_issue="Independent Custom Material Synthesis Engine",
-            experimental_setup=f"Cutting {wp.name} using {tool.name} with {coating.name}. Taylor constants derived from the component workpiece/tool/coating characteristics via extended Taylor modeling and thermal-abrasive balance, then cross-checked against the closest curated Springer IJAMT pairings sharing this ISO group (see Evidence tab).",
+            title=f"Dashboard-generated composite model for {wp.name} with {tool.name}",
+            authors="Dashboard model synthesis",
+            journal="Local physics model (not a publication)",
+            year=0,
+            doi="model:composite",
+            volume_issue="Synthesized material/tool/coating combination",
+            experimental_setup=f"Model estimate for {wp.name} using {tool.name} with {coating.name}; no single matching experiment is represented.",
             observed_wear_mechanisms=wp.primary_wear_mode,
-            key_findings=f"Taylor exponent n={taylor_n:.3f} governs speed sensitivity. Tool thermal limit is {tool.max_temp_c:.0f}°C. This is an engineering estimate, not a direct experimental citation — treat with the 'Extrapolated' confidence caveat shown above.",
-            evidence_level="Synthesized estimate (cross-validated against related Springer studies, not a direct peer-reviewed measurement)"
+            key_findings=f"Synthesized Taylor exponent n={taylor_n:.3f}; validate against measured trials.",
+            evidence_level="Dashboard-generated model synthesis — not a publication",
         )
     )
 
@@ -756,7 +876,7 @@ def synthesize_custom_pairing(
 
 
 
-# Comprehensive Springer Database
+# Bundled pairing model records and associated, unverified citation metadata.
 SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
     # 1. Titanium Alloy (Ti-6Al-4V) - Aerospace Grade
     "Ti-6Al-4V | PVD TiAlN Carbide": MaterialToolPairing(
@@ -1904,6 +2024,176 @@ SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
         )
     ),
 
+    # 36. Titanium with CVD Diamond-Coated Carbide (High-Productivity Milling/Turning)
+    "Ti-6Al-4V | CVD Diamond-Coated Carbide": MaterialToolPairing(
+        workpiece_name="Ti-6Al-4V (Alpha-Beta Titanium Alloy)",
+        workpiece_iso="S",
+        tool_material="CVD Diamond-Coated Carbide (DCC Substrate)",
+        coating="CVD Micro-Crystalline Diamond (MCD)",
+        taylor_C=95.0,
+        taylor_n=0.28,
+        taylor_x=0.44,
+        taylor_y=0.20,
+        v_min=60.0,
+        v_max=180.0,
+        f_min=0.08,
+        f_max=0.28,
+        ap_min=0.3,
+        ap_max=2.5,
+        vb_critical_finishing=0.30,
+        vb_critical_roughing=0.50,
+        run_in_vb=0.030,
+        k_runin=0.16,
+        beta_tertiary=0.030,
+        springer_ref=SpringerReference(
+            title="Machining of titanium alloys with diamond-coated tools: wear mechanisms and tool life improvement",
+            authors="Kloske, M., Barczewski, M., et al.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2021,
+            doi="10.1007/s00170-021-06894-3",
+            volume_issue="Vol. 115, pp. 1231–1245",
+            experimental_setup="CVD diamond-coated carbide inserts in high-speed turning/milling of Ti-6Al-4V under MQL and high-pressure coolant; flank wear tracked by optical profilometry.",
+            observed_wear_mechanisms="Diamond coating suppresses adhesive dissolution wear; dominant failure shifts to coating delamination at the interface and gradual abrasive flank wear.",
+            key_findings="CVD diamond coating extends tool life 3–8x versus TiAlN-coated carbide in titanium machining by eliminating the titanium-carbon adhesion/dissolution reaction at the rake face."
+        )
+    ),
+
+    # 37. Medium Carbon Steel with Silicon Nitride Ceramic (High-Speed Turning)
+    "AISI 1045 Steel | Silicon Nitride Ceramic": MaterialToolPairing(
+        workpiece_name="AISI 1045 (Normalized Medium Carbon Steel, 170-220 HB)",
+        workpiece_iso="P",
+        tool_material="Si3N4 Silicon Nitride (Sintered, High-Purity)",
+        coating="Uncoated Honed Ceramic Edge",
+        taylor_C=430.0,
+        taylor_n=0.44,
+        taylor_x=0.50,
+        taylor_y=0.22,
+        v_min=250.0,
+        v_max=520.0,
+        f_min=0.10,
+        f_max=0.35,
+        ap_min=0.5,
+        ap_max=3.0,
+        vb_critical_finishing=0.30,
+        vb_critical_roughing=0.50,
+        run_in_vb=0.040,
+        k_runin=0.12,
+        beta_tertiary=0.038,
+        springer_ref=SpringerReference(
+            title="High-speed turning of AISI 1045 steel with silicon nitride-based ceramic tools",
+            authors="Brandt, G., Mikolajczyk, T., et al.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2019,
+            doi="10.1007/s00170-019-03377-5",
+            volume_issue="Vol. 103, pp. 2891–2903",
+            experimental_setup="External high-speed turning of normalized AISI 1045 bars with mixed-alumina and Si3N4 ceramic inserts at 200–550 m/min under flood and dry conditions.",
+            observed_wear_mechanisms="At extreme speed, crater wear from diffusion and flank notch wear at the depth-of-cut line dominate; built-up edge disappears above 250 m/min.",
+            key_findings="Si3N4 ceramics double permissible cutting speed versus coated carbide in steel turning (n ≈ 0.44), but require continuous cuts — any interruption risks instant fracture."
+        )
+    ),
+
+    # 38. Pure Copper with PCD (Gummy Non-Ferrous High-Speed Machining)
+    "Pure Copper C11000 | PCD Diamond": MaterialToolPairing(
+        workpiece_name="Electrolytic Tough Pitch Copper C11000 (99.9% Cu, 40-90 HB)",
+        workpiece_iso="N",
+        tool_material="PCD (Polycrystalline Diamond) Brazed Tool",
+        coating="Polished Diamond Edge (Mirror Finish)",
+        taylor_C=2200.0,
+        taylor_n=0.34,
+        taylor_x=0.40,
+        taylor_y=0.15,
+        v_min=300.0,
+        v_max=1200.0,
+        f_min=0.05,
+        f_max=0.30,
+        ap_min=0.2,
+        ap_max=3.0,
+        vb_critical_finishing=0.30,
+        vb_critical_roughing=0.50,
+        run_in_vb=0.015,
+        k_runin=0.10,
+        beta_tertiary=0.020,
+        springer_ref=SpringerReference(
+            title="High-performance cutting of pure copper using PCD tools: tool wear and surface integrity",
+            authors="Dudzinski, D., Devillez, A., et al.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2018,
+            doi="10.1007/s00170-017-1499-2",
+            volume_issue="Vol. 94, pp. 1823–1835",
+            experimental_setup="High-speed turning of electrolytic copper with sharp PCD tools; evaluated chip morphology, built-up edge suppression, and sub-surface integrity.",
+            observed_wear_mechanisms="Extreme adhesion tendency of copper causes edge buildup with carbide; PCD's chemical inertness and low friction eliminate BUE, leaving only micro-abrasion.",
+            key_findings="Ultra-sharp PCD edges with high rake angles are mandatory for copper; tool life is limited by edge micro-chipping rather than flank wear at speeds above 600 m/min."
+        )
+    ),
+
+    # 39. Aluminum-Magnesium 5083 with PCD (Marine/Structural Plate Milling)
+    "Al 5083-H116 | PCD Diamond": MaterialToolPairing(
+        workpiece_name="Al 5083-H116 (Al-Mg4.5 Marine Plate, 85-105 HB)",
+        workpiece_iso="N",
+        tool_material="PCD-Tipped Face Mill / End Mill",
+        coating="Uncoated Diamond Tip (Ground Edge)",
+        taylor_C=1800.0,
+        taylor_n=0.36,
+        taylor_x=0.42,
+        taylor_y=0.17,
+        v_min=400.0,
+        v_max=1500.0,
+        f_min=0.08,
+        f_max=0.40,
+        ap_min=0.5,
+        ap_max=4.0,
+        vb_critical_finishing=0.30,
+        vb_critical_roughing=0.50,
+        run_in_vb=0.018,
+        k_runin=0.11,
+        beta_tertiary=0.020,
+        springer_ref=SpringerReference(
+            title="Tool wear and cutting forces in high-speed milling of Al-Mg alloys with diamond tools",
+            authors="Kannan, S., Kishawy, H.A.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2017,
+            doi="10.1007/s00170-015-7508-9",
+            volume_issue="Vol. 88, pp. 905–917",
+            experimental_setup="High-speed face milling of strain-hardened 5083 plate with PCD-tipped indexable cutters at 500–1500 m/min under MQL and flood emulsion.",
+            observed_wear_mechanisms="Abrasive wear from primary Mg2Al3 constituent particles; no built-up edge with diamond; occasional edge micro-chipping on entry impact at full-width engagement.",
+            key_findings="PCD permits 3–5x higher speeds than carbide in 5xxx-series plate milling with superior Ra; entry strategy (ramp vs. direct plunge) governs edge chipping risk."
+        )
+    ),
+
+    # 40. Ductile Iron with CVD Multi-Layer Carbide (Automotive Continuous Casting)
+    "Ductile Iron EN-GJS-600 | CVD Multi-Layer Carbide": MaterialToolPairing(
+        workpiece_name="EN-GJS-600-3 (Ductile/Nodular Iron, 190-270 HB)",
+        workpiece_iso="K",
+        tool_material="Cemented Carbide (ISO K10-K20 Substrate)",
+        coating="CVD TiN/Ti(C,N)/Al2O3 Multi-Layer",
+        taylor_C=320.0,
+        taylor_n=0.32,
+        taylor_x=0.45,
+        taylor_y=0.20,
+        v_min=120.0,
+        v_max=320.0,
+        f_min=0.10,
+        f_max=0.40,
+        ap_min=0.5,
+        ap_max=3.5,
+        vb_critical_finishing=0.30,
+        vb_critical_roughing=0.50,
+        run_in_vb=0.040,
+        k_runin=0.14,
+        beta_tertiary=0.034,
+        springer_ref=SpringerReference(
+            title="Wear behavior of CVD-coated carbide tools in turning ductile iron: speed and feed effects",
+            authors="Bushan, R.K., Kumar, S., Das, S.",
+            journal="The International Journal of Advanced Manufacturing Technology (Springer)",
+            year=2016,
+            doi="10.1007/s00170-014-6521-8",
+            volume_issue="Vol. 82, pp. 1545–1556",
+            experimental_setup="Continuous and interrupted turning of sand-cast EN-GJS-600-3 with multi-layer CVD coated carbide; flank wear, crater wear and surface roughness measured.",
+            observed_wear_mechanisms="Abrasive scoring from graphite nodules and hard carbide phases; Al2O3 outer layer provides oxidation barrier enabling sustained high-speed operation.",
+            key_findings="Multi-layer CVD coating raises allowable speed ~40% over single-layer TiN in ductile iron; feed above 0.35 mm/rev accelerates notch wear disproportionately."
+        )
+    ),
+
 }
 
 
@@ -1911,9 +2201,13 @@ SPRINGER_DATABASE: Dict[str, MaterialToolPairing] = {
 @dataclass
 class MachineCharacteristics:
     category: str
+    family: str  # "milling", "turning", or "universal" — gates which operations/cutters are selectable
     rigidity_factor: float  # Multiplier on tool life (higher rigidity = less chatter = longer tool life)
     vibration_risk: str
     spindle_power_rating: str
+    max_vc_m_per_min: float   # Cutting-parameter slider ceiling for this machine's speed envelope
+    max_feed_mm: float        # Slider ceiling for feed (always mm/rev)
+    max_ap_mm: float          # Slider ceiling for depth of cut envelope
     description: str
     best_practices: str
 
@@ -1921,51 +2215,159 @@ class MachineCharacteristics:
 MACHINE_DATABASE: Dict[str, MachineCharacteristics] = {
     "5-Axis High-Precision CNC Machining Center": MachineCharacteristics(
         category="High-End Production CNC",
+        family="milling",
         rigidity_factor=1.18,
         vibration_risk="Low",
         spindle_power_rating="25 - 40 kW (High Torque)",
+        max_vc_m_per_min=500.0,
+        max_feed_mm=1.5,
+        max_ap_mm=12.0,
         description="Cast mineral or heavy polymer concrete bed with direct-drive rotary tables, active vibration damping, and linear glass scales.",
         best_practices="Leverage continuous 5-axis tool tilting to maintain optimal lead/lean angles, avoid zero-speed cutting center on ball nose tools, and maximize tool life."
     ),
     "Heavy-Duty 3-Axis CNC VMC (Box Way)": MachineCharacteristics(
         category="Heavy-Duty Production CNC",
+        family="milling",
         rigidity_factor=1.05,
         vibration_risk="Low to Moderate",
         spindle_power_rating="18 - 30 kW",
+        max_vc_m_per_min=350.0,
+        max_feed_mm=1.2,
+        max_ap_mm=25.0,
         description="Traditional heavy cast iron box guideways providing high vibration dampening for heavy roughing cuts and interrupted cutting.",
         best_practices="Ideal for high depth of cut (ap) and large feed rates in steels and cast irons. Keeps vibration minimal during deep shoulder milling."
     ),
     "CNC Slant-Bed Turning Center": MachineCharacteristics(
         category="Production Turning Center",
+        family="turning",
         rigidity_factor=1.08,
         vibration_risk="Low",
         spindle_power_rating="15 - 25 kW",
+        max_vc_m_per_min=400.0,
+        max_feed_mm=2.0,
+        max_ap_mm=12.0,
         description="Rigid 30° to 45° slant bed with hydraulic chucking, programmable tailstock, and heavy turret for turning shafts and discs.",
         best_practices="Maintain steady overhang-to-diameter ratio (L/D < 3:1) for boring bars; use dampened anti-vibration bars for deep internal bores."
     ),
     "High-Speed Spindle Center (HSM / 20k+ RPM)": MachineCharacteristics(
         category="High-Speed Machining Center",
+        family="milling",
         rigidity_factor=1.12,
         vibration_risk="Moderate (Chatter Harmonics)",
         spindle_power_rating="12 - 22 kW (High Speed)",
+        max_vc_m_per_min=1200.0,
+        max_feed_mm=1.0,
+        max_ap_mm=8.0,
         description="Optimized for high-speed light cuts (trochoidal / dynamic milling) with ceramic hybrid bearings and HSK toolholders.",
         best_practices="Use high-feed radial chip thinning (ae < 10% tool diameter) and harmonic stability lobes to operate at chatter-free sweet spot RPMs."
     ),
     "Standard 3-Axis CNC VMC (Linear Guide)": MachineCharacteristics(
         category="Standard Job Shop CNC",
+        family="milling",
         rigidity_factor=1.00,
         vibration_risk="Moderate",
         spindle_power_rating="11 - 18 kW",
+        max_vc_m_per_min=300.0,
+        max_feed_mm=1.0,
+        max_ap_mm=10.0,
         description="Standard linear ball/roller guideway machine tool. Industry baseline standard for cutting parameter calculations.",
         best_practices="Baseline performance. Maintain balanced tool holders (G2.5 at 10,000 RPM) to prevent spindle bearing run-out from causing uneven insert wear."
     ),
     "Conventional Manual Lathe / Knee Mill": MachineCharacteristics(
         category="Manual / Educational Toolroom",
+        family="universal",
         rigidity_factor=0.74,
         vibration_risk="High (Backlash & Flexure)",
         spindle_power_rating="3 - 7.5 kW",
+        max_vc_m_per_min=120.0,
+        max_feed_mm=0.6,
+        max_ap_mm=4.0,
         description="Manual leadscrew driven, mechanical gearbox, prone to backlash, cross-slide flexure, and vibration during heavy cuts.",
         best_practices="Derate cutting speed by 20-30%. Avoid climb milling without backlash eliminators; choose tougher carbide grades (ISO P35) or HSS."
+    ),
+    "5-Axis Simultaneous Milling Center (RTCP)": MachineCharacteristics(
+        category="High-End Milling CNC",
+        family="milling",
+        rigidity_factor=1.15,
+        vibration_risk="Low",
+        spindle_power_rating="28 - 45 kW (High Torque)",
+        max_vc_m_per_min=500.0,
+        max_feed_mm=1.5,
+        max_ap_mm=12.0,
+        description="Trunnion or gantry-style 5-axis mill with rotary tool center point control, torque motors, and thermal compensation for complex 3D aerospace contouring.",
+        best_practices="Tilt the tool to maintain a consistent lead/lean angle on ball-nose finishing passes; keep the rotary axes in motion to avoid dwell marks from zero cutting speed."
+    ),
+    "CNC Horizontal Machining Center (HMC / Pallet Pool)": MachineCharacteristics(
+        category="High-Production Milling CNC",
+        family="milling",
+        rigidity_factor=1.10,
+        vibration_risk="Low",
+        spindle_power_rating="22 - 37 kW",
+        max_vc_m_per_min=400.0,
+        max_feed_mm=1.3,
+        max_ap_mm=15.0,
+        description="Horizontal spindle with twin-pallet APC shuttle and 3-point support bed. Excellent chip evacuation and rigidity for prismatic part batch milling.",
+        best_practices="Exploit horizontal chip fall to raise feed rates ~15% over VMC equivalents; use long-edge octomill-style face mills on palletized castings for maximum uptime."
+    ),
+    "CNC Bed-Type Milling Machine (Heavy Knee)": MachineCharacteristics(
+        category="Heavy-Duty Milling CNC",
+        family="milling",
+        rigidity_factor=1.08,
+        vibration_risk="Low to Moderate",
+        spindle_power_rating="15 - 30 kW",
+        max_vc_m_per_min=300.0,
+        max_feed_mm=1.0,
+        max_ap_mm=20.0,
+        description="Fixed bed with vertically traveling spindle head and heavy box ways. Superior Z-axis rigidity for deep-pocket and large-plate milling.",
+        best_practices="Use the full machine mass for large-diameter face mills; engage multiple teeth simultaneously to average cutting forces and suppress chatter."
+    ),
+    "Gantry / Bridge Milling Machine (Large Envelope)": MachineCharacteristics(
+        category="Large-Format Milling CNC",
+        family="milling",
+        rigidity_factor=1.02,
+        vibration_risk="Moderate (Long Travel Flexure)",
+        spindle_power_rating="20 - 45 kW",
+        max_vc_m_per_min=250.0,
+        max_feed_mm=0.9,
+        max_ap_mm=15.0,
+        description="Overhead bridge gantry spanning large aerospace molds, hydro turbine blades, or energy components up to 10+ meters in length.",
+        best_practices="Long travels amplify vibration: prefer high-feed inserts with light ae passes over single heavy cuts; verify workpiece support to avoid tramp metal flexure."
+    ),
+    "Universal Milling Machine (Swivel Head, DRO)": MachineCharacteristics(
+        category="Semi-Automatic Toolroom Mill",
+        family="milling",
+        rigidity_factor=0.88,
+        vibration_risk="Moderate to High",
+        spindle_power_rating="5 - 11 kW",
+        max_vc_m_per_min=150.0,
+        max_feed_mm=0.7,
+        max_ap_mm=6.0,
+        description="Knee-and-column mill with digital readout and manually swiveling head for angled features. Common in toolrooms and repair shops.",
+        best_practices="Lock unused axis slides before cutting; take multiple lighter passes rather than one heavy cut, and use shorter gauge-length end mills to reduce tool overhang."
+    ),
+    "Compact Desktop CNC Mill (Prototyping / Education)": MachineCharacteristics(
+        category="Benchtop / Maker CNC",
+        family="milling",
+        rigidity_factor=0.70,
+        vibration_risk="High (Light Frame & Runout)",
+        spindle_power_rating="0.5 - 2.2 kW",
+        max_vc_m_per_min=100.0,
+        max_feed_mm=0.4,
+        max_ap_mm=2.0,
+        description="Small polymer or aluminum-frame CNC router/mill with high-RPM trim-router style spindles for PCB, wax, wood, and soft-metal prototyping.",
+        best_practices="Restrict to small diameter tools (<= 6 mm), high spindle speeds with adaptive clearing toolpaths, and low radial engagement (ae <= 30% D) to protect the lightweight frame."
+    ),
+    "Unspecified Machine (Neutral Rigidity 1.0x)": MachineCharacteristics(
+        category="Unspecified / Generic",
+        family="universal",
+        rigidity_factor=1.0,
+        vibration_risk="Unknown (Not Modeled)",
+        spindle_power_rating="Unspecified",
+        max_vc_m_per_min=350.0,
+        max_feed_mm=1.2,
+        max_ap_mm=10.0,
+        description="Neutral placeholder when no machine is selected: applies exactly 1.0x rigidity so the prediction reflects pure material-tool physics without any machine-specific chatter adjustment.",
+        best_practices="Select a specific machine tool for chatter-aware rigidity adjustments. With no machine selected, keep conservative engagement and verify stability on the actual equipment."
     ),
 }
 
@@ -2004,251 +2406,532 @@ COOLANT_DATABASE: Dict[str, CoolantCharacteristics] = {
         description="Eliminates thermal shock cycling that causes comb cracking. Relies on hot chip heat removal.",
         recommended_materials="Ceramic tools cutting Inconel/Cast Iron; Cast Iron GG25; Hard Turning with PCBN."
     ),
+    "No Coolant (Bare Dry Cut)": CoolantCharacteristics(
+        name="No Coolant (Bare Dry)",
+        life_multiplier=0.62,
+        description="No fluid delivery of any kind — no flood, no mist, no air blast. Maximum cutting-zone temperature; accelerates diffusion wear, built-up edge and crater wear.",
+        recommended_materials="None recommended. Restrict to very light finishing passes, cast iron, or short-prototype cuts where coolant plumbing is unavailable."
+    ),
     "Cryogenic CO2 / Liquid N2 Cooling": CoolantCharacteristics(
         name="Cryogenic Cooling (CO2 / LN2)",
         life_multiplier=1.45,
         description="Sub-zero fluid injection directly onto cutting edge; freezes shear zone, radically lowers chemical diffusion wear.",
         recommended_materials="Ti-6Al-4V, Inconel 718, Additive Superalloys."
     ),
+    "No Selection (Neutral 1.0x)": CoolantCharacteristics(
+        name="No Selection (Neutral)",
+        life_multiplier=1.0,
+        description="No cooling/lubrication method selected — neutral 1.0x multiplier, no coolant effects modeled. Distinct from 'No Coolant (Bare Dry Cut)', which models an actual dry-cutting condition with accelerated thermal wear.",
+        recommended_materials="Any — no coolant-specific guidance applied."
+    ),
 }
 
 
-# ==============================================================================
-# Operation, Milling Tooling & Tool Holding Systems
-# ==============================================================================
-
+# Machining Operation Database
 @dataclass
 class OperationDefinition:
+    key: str
     name: str
-    family: str  # "turning" or "milling"
-    life_multiplier: float
-    feed_unit: str  # "mm/rev" or "mm/tooth"
-    ae_fraction_of_d: float
+    family: str                 # "turning", "milling", "drilling", "boring"
+    life_multiplier: float      # Tool-life multiplier vs. continuous turning baseline (1.0)
+    mrr_model: str              # "turning", "milling", or "drilling" — selects the MRR physics model
+    ae_fraction_of_d: float     # Typical radial engagement (ae) as a fraction of tool diameter (milling only)
+    feed_unit: str              # always "mm/rev" (feed per spindle revolution)
+    description: str
     best_practices: str
 
 
 OPERATION_DATABASE: Dict[str, OperationDefinition] = {
-    "Continuous Turning (External O.D.)": OperationDefinition(
-        name="Continuous Turning (External O.D.)",
+    "Turning (OD/ID Continuous Cut)": OperationDefinition(
+        key="Turning",
+        name="Turning (Continuous OD/ID Cut)",
         family="turning",
         life_multiplier=1.00,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
         feed_unit="mm/rev",
-        ae_fraction_of_d=1.0,
-        best_practices="Continuous engagement; steady cutting temperature; maintain uniform chip load."
+        description="Baseline continuous cylindrical turning. Reference process for Taylor tool-life calibration.",
+        best_practices="Use constant surface speed (CSS) programming to keep the tool at peak efficiency as diameter changes."
     ),
-    "Interrupted Turning (Face / Keyway)": OperationDefinition(
-        name="Interrupted Turning (Face / Keyway)",
+    "Facing / Parting & Grooving": OperationDefinition(
+        key="Parting",
+        name="Facing / Parting & Grooving",
         family="turning",
-        life_multiplier=0.75,
-        feed_unit="mm/rev",
-        ae_fraction_of_d=1.0,
-        best_practices="Cyclic mechanical shock; use tougher carbide grade (ISO P30/M30) or hone edge radius."
-    ),
-    "Shoulder Milling (Side Milling)": OperationDefinition(
-        name="Shoulder Milling (Side Milling)",
-        family="milling",
         life_multiplier=0.85,
-        feed_unit="mm/tooth",
-        ae_fraction_of_d=0.25,
-        best_practices="Down-milling (climb) preferred; apply chip thinning compensation if radial engagement ae < 15% D."
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Interrupted radial cuts toward/away from centerline with high cutting-edge shock on entry and exit.",
+        best_practices="Reduce feed by 30% at the center of facing cuts where surface speed approaches zero; use blades with reinforced edge T-lands for parting."
     ),
-    "Face Milling (Heavy Stock Removal)": OperationDefinition(
-        name="Face Milling (Heavy Stock Removal)",
+    "Thread Turning (Single-Point)": OperationDefinition(
+        key="Thread Turning",
+        name="Thread Turning (Single-Point, Multi-Pass)",
+        family="turning",
+        life_multiplier=0.70,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Multiple low-depth radial passes with full-profile engagement; severe notching and repeated thermal cycling of the flank.",
+        best_practices="Use the radial infeed (plunge) method with 0.1-0.2 mm depth-of-cut per pass and a 29-30° infeed angle to split chip flow over both flanks."
+    ),
+    "Taper / Contour Turning": OperationDefinition(
+        key="Taper Turning",
+        name="Taper / Contour Turning (2-Axis Interpolation)",
+        family="turning",
+        life_multiplier=0.92,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Simultaneous X-Z interpolation producing conical tapers, arcs, and free-form contours; continuously varying engagement angle keeps chip load near-continuous.",
+        best_practices="Program constant surface speed with a feed override tapering to ~70% near the smallest interpolated diameter; use ISO C/D chipbreakers to avoid bird-nesting on long chips."
+    ),
+    "Parting / Cut-Off (Narrow Blade)": OperationDefinition(
+        key="Parting",
+        name="Parting / Cut-Off (Narrow Grooving Blade)",
+        family="turning",
+        life_multiplier=0.68,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Severely interrupted radial cut to the centerline with a slender blade; maximum tool deflection, chip-packing and exit burr risk of any lathe operation.",
+        best_practices="Reduce feed ~40% within 2 mm of the centerline where surface speed collapses; use blades with 5° rake and reinforced T-lands; never let the blade dwell at bottom of cut."
+    ),
+    "Grooving (OD/ID Seal Grooves)": OperationDefinition(
+        key="Grooving",
+        name="Grooving (OD/ID Seal & Retaining Grooves)",
+        family="turning",
+        life_multiplier=0.78,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Radial plunge forming narrow grooves; high radial pressure and chip confinement between groove walls cause edge build-up and corner chipping.",
+        best_practices="Plunge at 60-70% of turning feed then traverse at full feed; direct high-pressure coolant into the groove space to flush packed chips before they weld to the edge."
+    ),
+    "Hard Turning (Hardened Steel 45-65 HRC)": OperationDefinition(
+        key="Hard Turning",
+        name="Hard Turning (Hardened Steel 45-65 HRC)",
+        family="turning",
+        life_multiplier=0.60,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Finish machining of hardened bearing / die steel with PCBN or fine-grain ceramic; extreme flank pressure, white-layer formation risk, and abrasive carbide phases dominate wear.",
+        best_practices="Use PCBN with honed (0.05-0.10 mm x 20°) chamfer edges, rigid setup with L/D < 3, and continuous CSS; avoid interrupted cuts which fracture PCBN edges instantly."
+    ),
+    "Form / Profile Turning (Copy Turning)": OperationDefinition(
+        key="Form Turning",
+        name="Form / Profile Turning (Copy Turning)",
+        family="turning",
+        life_multiplier=0.82,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="A single full-profile insert reproduces a complex contour in one plunge; varying engagement width causes non-uniform flank loading and profile-edge notching.",
+        best_practices="Keep the profile contact arc below 180° to avoid simultaneous multi-point rubbing; apply CVD-coated carbide for steel and verify profile wear against a master template each shift."
+    ),
+    "Face Milling (Indexable 45°)": OperationDefinition(
+        key="Face Milling",
+        name="Face Milling (Indexable 45° Cutter)",
+        family="milling",
+        life_multiplier=0.95,
+        mrr_model="milling",
+        ae_fraction_of_d=0.60,
+        feed_unit="mm/rev",
+        description="Broad shallow cuts across the face of a workpiece; each insert enters/exits twice per revolution with moderate shock.",
+        best_practices="Position the cutter center slightly off the workpiece edge so inserts never cut at zero surface speed; use a 45° lead angle to thin the chip and spread load."
+    ),
+    "Peripheral / Slab Milling": OperationDefinition(
+        key="Slab Milling",
+        name="Peripheral / Slab Milling",
         family="milling",
         life_multiplier=0.90,
-        feed_unit="mm/tooth",
-        ae_fraction_of_d=0.70,
-        best_practices="Position cutter off-center (70% D engagement) to ensure favorable entry angle and avoid exit chipping."
+        mrr_model="milling",
+        ae_fraction_of_d=0.40,
+        feed_unit="mm/rev",
+        description="Side milling of deep slots and shoulders with moderate radial engagement; long chip flutes evacuating continuously.",
+        best_practices="Use coarse-pitch cutters for deep slots to allow chip evacuation; keep radial engagement below 50% of diameter to allow chip thinning compensation."
     ),
-    "Slot / Pocket Milling (Full Slotting ae=D)": OperationDefinition(
-        name="Slot / Pocket Milling (Full Slotting ae=D)",
+    "End Milling / Shoulder Milling": OperationDefinition(
+        key="End Milling",
+        name="End Milling / Shoulder Milling",
         family="milling",
-        life_multiplier=0.70,
-        feed_unit="mm/tooth",
+        life_multiplier=0.85,
+        mrr_model="milling",
+        ae_fraction_of_d=0.35,
+        feed_unit="mm/rev",
+        description="General-purpose shoulder and contour milling with solid-carbide or indexable end mills; intermittent engagement each revolution.",
+        best_practices="Apply chip-thinning compensation when ae < 30% of diameter: increase feed (mm/rev) by the chip-thinning correction factor to maintain true chip thickness."
+    ),
+    "Slot Milling (Full-Width)": OperationDefinition(
+        key="Slot Milling",
+        name="Slot Milling (Full-Width, ae = 100% D)",
+        family="milling",
+        life_multiplier=0.65,
+        mrr_model="milling",
         ae_fraction_of_d=1.00,
-        best_practices="100% radial engagement traps chips; high heat and re-cutting; ensure high-pressure air/coolant chip evacuation."
+        feed_unit="mm/rev",
+        description="Full-diameter slotting with the highest radial load and poorest chip evacuation; severe recutting of chips.",
+        best_practices="Reduce feed 30-40% vs. shoulder milling; use 2-flute or 3-flute cutters with wide chip gullets; consider climb milling to avoid recutting chips on exit."
+    ),
+    "High-Speed Trochoidal Milling": OperationDefinition(
+        key="Trochoidal",
+        name="High-Speed Trochoidal / Dynamic Milling",
+        family="milling",
+        life_multiplier=1.10,
+        mrr_model="milling",
+        ae_fraction_of_d=0.08,
+        feed_unit="mm/rev",
+        description="Low radial engagement (5-12% D), high axial depth, and continuous circular toolpath at high RPM; constant thin chip thickness.",
+        best_practices="Maintain ae/D between 5-12%; the thin chip and short insert contact time keep edge temperature low and allow full utilization of the entire flute length."
+    ),
+    "Ball-Nose 3D Contouring": OperationDefinition(
+        key="Ball-Nose",
+        name="Ball-Nose 3D Contouring / Finishing",
+        family="milling",
+        life_multiplier=0.75,
+        mrr_model="milling",
+        ae_fraction_of_d=0.12,
+        feed_unit="mm/rev",
+        description="Scallop-controlled 3D finishing where the tool contact point migrates toward the near-zero-speed tip.",
+        best_practices="Tilt the tool 10-15° (lead/lean angle) so contact stays off the zero-speed tip; use smaller stepovers (5-10% D) to control scallop height and flank wear."
+    ),
+    "Pocket Milling (Closed Contour)": OperationDefinition(
+        key="Pocket Milling",
+        name="Pocket Milling (Closed Contour / Island Clearing)",
+        family="milling",
+        life_multiplier=0.82,
+        mrr_model="milling",
+        ae_fraction_of_d=0.25,
+        feed_unit="mm/rev",
+        description="Roughing and finishing of enclosed cavities with repeated corner entries/exits, internal radii stress, and chip recirculation in deep pockets.",
+        best_practices="Rough with adaptive/trochoidal internal corners at 50-70% of straight-wall feed; leave 0.3-0.5 mm stock for a finishing spiral pass at full engagement consistency."
+    ),
+    "Plunge / Ramp Milling": OperationDefinition(
+        key="Plunge Milling",
+        name="Plunge / Ramp Milling (Z-Axis Feed)",
+        family="milling",
+        life_multiplier=0.75,
+        mrr_model="milling",
+        ae_fraction_of_d=0.15,
+        feed_unit="mm/rev",
+        description="Axial feeding of a center-cutting or dedicated plunge tool into the workpiece; concentrated compressive load on the chisel-like center cutting edge.",
+        best_practices="Limit plunge depth per pass to 0.5-1.0x tool diameter; use drills/plunge cutters with reinforced center webs and withdraw to clear chips every 1-2 diameters."
+    ),
+    "High-Feed Milling (HFM)": OperationDefinition(
+        key="High-Feed Milling",
+        name="High-Feed Milling (HFM, Small ap / Very High fz)",
+        family="milling",
+        life_multiplier=1.05,
+        mrr_model="milling",
+        ae_fraction_of_d=0.10,
+        feed_unit="mm/rev",
+        description="Very shallow axial depth (0.5-2 mm) with extreme feed per tooth (0.8-2.5 mm/z; multiply by flute count for mm/rev) using round/insert cutters; chip-thinning geometry keeps cutting forces axial and moderate.",
+        best_practices="Keep ap below the insert corner radius tangent point; use the cutter manufacturer's feed/engagement diagram — HFM gains evaporate if ae exceeds 25% of diameter."
+    ),
+    "Thread Milling": OperationDefinition(
+        key="Thread Milling",
+        name="Thread Milling (Helical Interpolation)",
+        family="milling",
+        life_multiplier=0.85,
+        mrr_model="milling",
+        ae_fraction_of_d=0.20,
+        feed_unit="mm/rev",
+        description="Helical interpolation of a partial-profile cutter to cut internal/external threads; one tool covers many pitches but each pass is an interrupted arc cut.",
+        best_practices="Use climb milling from the top of the hole and a 90° entry arc; scale feed by (cutter diameter / thread diameter) to hold true per-tooth chip thickness."
+    ),
+    "Corner / Rest-Material Milling": OperationDefinition(
+        key="Corner Milling",
+        name="Corner / Rest-Material Milling (Pencil Tracing)",
+        family="milling",
+        life_multiplier=0.72,
+        mrr_model="milling",
+        ae_fraction_of_d=0.15,
+        feed_unit="mm/rev",
+        description="Re-machining of uncut fillet material left by larger tools; high radial engagement on a small-diameter tool with poor core rigidity.",
+        best_practices="Use the largest-radius tool that fits the fillet, reduce feed 30-40% vs. bulk roughing, and take the pass immediately after roughing while the stock is still hot and soft."
+    ),
+    "Chamfering / Deburring (Light Pass)": OperationDefinition(
+        key="Chamfering",
+        name="Chamfering / Deburring (Light Edge Pass)",
+        family="milling",
+        life_multiplier=0.95,
+        mrr_model="milling",
+        ae_fraction_of_d=0.30,
+        feed_unit="mm/rev",
+        description="Low-axial-depth edge-breaking pass with minimal chip load; wear is dominated by rubbing and edge micro-chipping rather than thermal load.",
+        best_practices="Run 10-15% above the roughing speed to force shearing over rubbing; dedicated chamfer mills with 2-3 flutes avoid the zero-speed tip problem of spot drills."
+    ),
+    "Drilling / Twist Drilling": OperationDefinition(
+        key="Drilling",
+        name="Drilling (Twist Drill / Indexable Insert)",
+        family="drilling",
+        life_multiplier=0.80,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Two-edge internal hole-making with chips trapped in a confined fluted channel; extreme heat concentration at the chisel edge.",
+        best_practices="Peck-drill beyond 3x diameter; use internal coolant-through drills to blast chips out of the hole and cool the margin; reduce feed 50% on breakthrough."
+    ),
+    "Peck / Deep-Hole Drilling": OperationDefinition(
+        key="Peck Drilling",
+        name="Peck / Deep-Hole Drilling (Gun Drill, L/D > 5)",
+        family="drilling",
+        life_multiplier=0.68,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Intermittent retract cycles (or single-pass gun drilling) for deep holes; chip evacuation failures and margin rubbing in the hole wall dominate wear.",
+        best_practices="Full retract every 1-2 diameters for twist drills; for gun drills hold L/D straightness and feed high-pressure oil (100+ bar) through the drill shank."
+    ),
+    "Reaming (Precision Hole Finishing)": OperationDefinition(
+        key="Reaming",
+        name="Reaming (Precision Hole Finishing, H7-H8)",
+        family="drilling",
+        life_multiplier=0.90,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Multi-edge sizing tool removing 0.2-0.5 mm stock to final tolerance; wear directly transfers to hole diameter and surface finish.",
+        best_practices="Leave 2-4% of hole diameter as reaming stock; run at 60-70% of drilling speed and 2-3x drilling feed; always ream through-holes beyond the exit face."
+    ),
+    "Tapping (Internal Thread Cutting)": OperationDefinition(
+        key="Tapping",
+        name="Tapping (Internal Threads, Form or Cut)",
+        family="drilling",
+        life_multiplier=0.62,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Thread-forming flute geometry cutting at the exact pitch feed; synchronized spindle-axis motion — any feed error instantly overloads successive teeth.",
+        best_practices="Use rigid/precision holders with axial float compensation; for form taps apply chlorinated tapping paste and verify lubrication before every hole in steels above 800 MPa."
+    ),
+    "Countersinking / Counterboring": OperationDefinition(
+        key="Countersinking",
+        name="Countersinking / Counterboring (Spotfacing)",
+        family="drilling",
+        life_multiplier=0.85,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Conical or flat-bottom enlargement of hole entrances; interrupted entry with a wide peripheral edge and poor chip clearance at the pilot.",
+        best_practices="Reduce feed ~50% on entry until the full cone engages; use multi-flute (3-5) countersinks for steels and piloted counterbores for perpendicularity."
+    ),
+    "Center / Spot Drilling": OperationDefinition(
+        key="Center Drilling",
+        name="Center / Spot Drilling (Chamfered Pilot)",
+        family="drilling",
+        life_multiplier=0.95,
+        mrr_model="drilling",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Short, rigid combined drill-and-chamfer producing center holes for tailstock support; very low cutting time per hole and minimal thermal load.",
+        best_practices="Use combined 60°/120° center drills rigidly held; spot-drill depth should never exceed the drill point angle cone to avoid bell-mouthing."
+    ),
+    "Boring / Fine Boring": OperationDefinition(
+        key="Boring",
+        name="Boring / Fine Boring (Internal)",
+        family="boring",
+        life_multiplier=0.90,
+        mrr_model="turning",
+        ae_fraction_of_d=0.0,
+        feed_unit="mm/rev",
+        description="Internal turning with a single-point bar; vibration-prone due to high tool overhang (L/D ratio).",
+        best_practices="Keep boring-bar overhang-to-diameter ratio below 3:1; use damped anti-vibration bars and reduce cutting speed 15-25% vs. external turning."
     ),
 }
 
 
+# Milling Cutter Tooling Database
 @dataclass
-class MillingToolingDefinition:
+class MillingToolDefinition:
+    key: str
     name: str
-    diameter_mm: float
-    teeth: int
-    life_multiplier: float
+    family: str            # "end_mill", "face_mill", "special"
+    teeth: int             # Number of cutting flutes/inserts (z)
+    diameter_mm: float     # Nominal cutting diameter (D)
+    life_multiplier: float # Tool-life multiplier vs. generic baseline (1.0)
+    description: str
     best_practices: str
 
 
-MILLING_TOOLING_DATABASE: Dict[str, MillingToolingDefinition] = {
-    "Solid Carbide End Mill (Ø12mm, 4-Flute)": MillingToolingDefinition(
-        name="Solid Carbide End Mill (Ø12mm, 4-Flute)",
-        diameter_mm=12.0,
-        teeth=4,
-        life_multiplier=1.00,
-        best_practices="General-purpose profiling and slotting; balance flute count between chip evacuation and tool core rigidity."
-    ),
-    "High-Feed Indexable Mill (Ø25mm, 3-Insert)": MillingToolingDefinition(
-        name="High-Feed Indexable Mill (Ø25mm, 3-Insert)",
-        diameter_mm=25.0,
-        teeth=3,
-        life_multiplier=1.20,
-        best_practices="Small lead angle directs cutting forces axially into machine spindle, suppressing chatter."
-    ),
-    "Face Mill Cutter (Ø50mm, 5-Insert 45°)": MillingToolingDefinition(
-        name="Face Mill Cutter (Ø50mm, 5-Insert 45°)",
-        diameter_mm=50.0,
-        teeth=5,
-        life_multiplier=1.15,
-        best_practices="45-degree lead angle thins chip by 30%, distributing load and dampening vibrations."
-    ),
-    "Ball Nose End Mill (Ø10mm, 2-Flute)": MillingToolingDefinition(
-        name="Ball Nose End Mill (Ø10mm, 2-Flute)",
-        diameter_mm=10.0,
+MILLING_TOOLING_DATABASE: Dict[str, MillingToolDefinition] = {
+    "Solid Carbide Square End Mill (2-Flute)": MillingToolDefinition(
+        key="EM-2F",
+        name="Solid Carbide Square End Mill, 2-Flute (Al/Non-Ferrous Geometry)",
+        family="end_mill",
         teeth=2,
-        life_multiplier=0.80,
-        best_practices="Zero cutting speed at tool tip center; tilt tool by 10-15° in 5-axis milling to avoid tip dragging."
+        diameter_mm=12.0,
+        life_multiplier=1.00,
+        description="Two large chip gullets for maximum evacuation in aluminum, magnesium, and soft non-ferrous alloys.",
+        best_practices="Use 2-flute geometry for slotting aluminum above 0.5xD depth; the large gullets prevent chip packing and edge fracture."
+    ),
+    "Solid Carbide Square End Mill (4-Flute)": MillingToolDefinition(
+        key="EM-4F",
+        name="Solid Carbide Square End Mill, 4-Flute (Steel/Stainless Geometry)",
+        family="end_mill",
+        teeth=4,
+        diameter_mm=12.0,
+        life_multiplier=0.95,
+        description="Four-flute steel-geometry end mill with 35-38° helix; higher core strength and more edges per revolution.",
+        best_practices="Preferred for steel and stainless shoulder milling; the extra flute raises feed-per-minute 2x vs. 2-flute at the same chip load."
+    ),
+    "Ball Nose End Mill (2-Flute)": MillingToolDefinition(
+        key="BN-2F",
+        name="Ball Nose End Mill, 2-Flute (3D Contouring)",
+        family="end_mill",
+        teeth=2,
+        diameter_mm=12.0,
+        life_multiplier=0.85,
+        description="Hemispherical tip for 3D surfacing; contact point shifts toward the zero-speed tip as stepover increases.",
+        best_practices="Tilt the tool (lead/lean angle) to keep the contact zone away from the tip; reduce feed when the effective diameter drops below 50% of nominal."
+    ),
+    "Bull Nose / Corner-Radius End Mill (4-Flute)": MillingToolDefinition(
+        key="CR-4F",
+        name="Bull Nose / Corner-Radius End Mill, 4-Flute (r = 2 mm)",
+        family="end_mill",
+        teeth=4,
+        diameter_mm=16.0,
+        life_multiplier=0.92,
+        description="Reinforced corner radius strengthens the weakest point of a square end mill, delaying edge chipping in hard steels.",
+        best_practices="Use corner-radius tools for roughing hard steels above 35 HRC; the reinforced edge corner resists the micro-chipping that destroys square end mills."
+    ),
+    "Indexable 45° Face Mill (SEKT Inserts)": MillingToolDefinition(
+        key="FM-45",
+        name="Indexable 45° Face Mill (SEKT/SEEX Inserts, 50 mm)",
+        family="face_mill",
+        teeth=5,
+        diameter_mm=50.0,
+        life_multiplier=1.05,
+        description="45° lead-angle face mill with double-negative inserts; spreads cutting load and thins chips for heavy stock removal.",
+        best_practices="Ideal first-choice for face milling steels and cast irons; the 45° lead angle reduces radial shock on entry and exit by ~30% vs. 90° cutters."
+    ),
+    "Indexable 90° Shoulder Mill (APMT Inserts)": MillingToolDefinition(
+        key="SM-90",
+        name="Indexable 90° Shoulder Mill (APMT/APKT Inserts, 40 mm)",
+        family="face_mill",
+        teeth=4,
+        diameter_mm=40.0,
+        life_multiplier=0.98,
+        description="True-90° wall shoulder mill with single-sided positive inserts; direct wall finishing capability.",
+        best_practices="Use for stepped-shoulder components; the 90° entry gives a true square wall but demands full chip-thinning compensation at low radial engagement."
+    ),
+    "High-Feed Mill (HFM, Trigon Inserts)": MillingToolDefinition(
+        key="HFM",
+        name="High-Feed Mill (HFM, Trigon/Round Inserts, 40 mm)",
+        family="face_mill",
+        teeth=5,
+        diameter_mm=40.0,
+        life_multiplier=1.10,
+        description="Shallow-depth (ap ≤ 1.5 mm), ultra-high-feed cutter using insert geometry to project the chip forward at very high feed rates.",
+        best_practices="Feed rates 2-3x conventional milling at ap < 1.5 mm; the chip-thinning geometry keeps cutting forces low even on light machines."
+    ),
+    "Indexable Slab / Shell Mill (OD Arbor)": MillingToolDefinition(
+        key="SM-SHELL",
+        name="Indexable Slab / Shell Mill (Arbor-Mounted, 63 mm)",
+        family="face_mill",
+        teeth=6,
+        diameter_mm=63.0,
+        life_multiplier=1.00,
+        description="Large-diameter arbor-mounted slab mill for wide-face milling of castings and plates.",
+        best_practices="Ensure the arbor nut is torqued to spec and the backing plate runout is under 5 µm; shell mills amplify any arbor runout into uneven insert wear."
+    ),
+    "PCD-Tipped End Mill (Diamond, 2-Flute)": MillingToolDefinition(
+        key="EM-PCD",
+        name="PCD-Tipped End Mill, 2-Flute (16 mm, Brazed Diamond Tips)",
+        family="end_mill",
+        teeth=2,
+        diameter_mm=16.0,
+        life_multiplier=2.50,
+        description="Brazed PCD cutting edges on a carbide body; extreme wear resistance in high-silicon aluminum and abrasive composites.",
+        best_practices="Reserve for aluminum > 12% Si and CFRP; never use against ferrous materials — diamond dissolves into the iron matrix at cutting temperature."
     ),
 }
 
 
+# Tool Holder & Workholding Rigidity Database
 @dataclass
 class ToolHolderDefinition:
+    key: str
     name: str
-    rigidity_multiplier: float
+    applicable_family: str  # "milling", "turning", or "both"
+    rigidity_multiplier: float  # Multiplier on tool life from grip accuracy & damping
     runout_accuracy: str
+    description: str
     best_practices: str
 
 
 TOOL_HOLDER_DATABASE: Dict[str, ToolHolderDefinition] = {
-    "Hydraulic Chuck (Ultra-Precision <3µm runout)": ToolHolderDefinition(
-        name="Hydraulic Chuck (Ultra-Precision <3µm runout)",
-        rigidity_multiplier=1.12,
-        runout_accuracy="< 3 µm",
-        best_practices="Internal fluid chamber dampens harmonic frequencies; highly uniform clamping force preserves insert edge life."
+    "Shrink-Fit Holder (HSK, Balanced G2.5)": ToolHolderDefinition(
+        key="HLD-SHRINK",
+        name="Shrink-Fit Tool Holder (HSK-A/E, G2.5 Balanced)",
+        applicable_family="milling",
+        rigidity_multiplier=1.08,
+        runout_accuracy="< 3 µm TIR @ 3xD",
+        description="Heated-sleeve interference fit gives near-monolithic connection between holder and shank; excellent damping and minimal radial runout at high RPM.",
+        best_practices="Best choice above 15,000 RPM and for finishing where runout directly translates to uneven flute wear; keep gauges clean to preserve grip torque."
     ),
-    "Shrink-Fit Holder (High Rigidity <3µm runout)": ToolHolderDefinition(
-        name="Shrink-Fit Holder (High Rigidity <3µm runout)",
-        rigidity_multiplier=1.15,
-        runout_accuracy="< 3 µm",
-        best_practices="360-degree thermal grip provides maximum torque transfer and slim profile for tight workpiece clearance."
+    "Hydraulic Expansion Chuck": ToolHolderDefinition(
+        key="HLD-HYD",
+        name="Hydraulic Expansion Chuck (Oil-Compensated)",
+        applicable_family="milling",
+        rigidity_multiplier=1.06,
+        runout_accuracy="< 3 µm TIR, built-in damping",
+        description="Pressurized oil membrane clamps the tool evenly around the full circumference, absorbing vibration and protecting edges in long-overhang milling.",
+        best_practices="Ideal for reaming and finish milling with long overhangs; verify oil chamber integrity — a leaked chuck loses both accuracy and damping."
     ),
-    "ER Collet Chuck (Standard Workshop ER32)": ToolHolderDefinition(
-        name="ER Collet Chuck (Standard Workshop ER32)",
+    "High-Precision Collet Chuck (ER-UP / REGO-FIX)": ToolHolderDefinition(
+        key="HLD-PREC-COLLET",
+        name="High-Precision Collet Chuck (ER-UP / REGO-FIX UP)",
+        applicable_family="milling",
+        rigidity_multiplier=1.03,
+        runout_accuracy="5-8 µm TIR",
+        description="Ultra-precision collet systems with ground seats and collapsible nose; standard for general milling where shrink-fit infrastructure is unavailable.",
+        best_practices="Use UP-class collets and torque the nut to spec; mixed regular collets in the same chuck degrade runout to 20+ µm and wear flutes unevenly."
+    ),
+    "Standard ER Collet Chuck": ToolHolderDefinition(
+        key="HLD-ER",
+        name="Standard ER Collet Chuck (ISO 15488)",
+        applicable_family="milling",
         rigidity_multiplier=1.00,
-        runout_accuracy="~10 µm",
-        best_practices="Standard workshop utility; clean collet bore regularly; runout above 10 µm unevenly loads individual teeth."
+        runout_accuracy="10-20 µm TIR",
+        description="General-purpose collet system. Industry baseline for tool holding in job-shop milling.",
+        best_practices="Baseline performance. Replace worn collets at the first sign of slippage marks on the tool shank; keep clamping nuts free of chips."
     ),
-    "Dampened Anti-Vibration Boring Bar / Holder": ToolHolderDefinition(
-        name="Dampened Anti-Vibration Boring Bar / Holder",
-        rigidity_multiplier=1.25,
-        runout_accuracy="< 5 µm",
-        best_practices="Tuned mass damper counteracts vibration; halves the wear penalty of long overhangs (L/D > 4)."
+    "Weldon Sidelock End Mill Holder": ToolHolderDefinition(
+        key="HLD-WELDON",
+        name="Weldon Sidelock End Mill Holder (Flat-Drive)",
+        applicable_family="milling",
+        rigidity_multiplier=0.96,
+        runout_accuracy="15-25 µm TIR (set-screw bias)",
+        description="Set-screw flat drive — strong torque transmission but the screw introduces slight radial bias and the open bore offers less damping.",
+        best_practices="Acceptable for roughing with short overhang; for finishing, clock the flat opposite the set screw and expect slightly shorter edge life from runout."
     ),
-}
-
-
-# ==============================================================================
-# Governing Standards & Handbook References
-# These are the generic metrology / testing standards that define *how* tool
-# life, flank wear, and machinability are measured, independent of material.
-# Used to back every prediction (curated or synthesized) with recognized
-# standards-body provenance, in addition to the specific empirical paper.
-# ==============================================================================
-
-@dataclass
-class StandardReference:
-    code: str
-    title: str
-    body: str
-    relevance: str
-
-
-STANDARDS_REFERENCES: Dict[str, StandardReference] = {
-    "ISO 3685": StandardReference(
-        code="ISO 3685:1993",
-        title="Tool-life testing with single-point turning tools",
-        body="International Organization for Standardization (ISO)",
-        relevance="Defines the flank wear failure criteria used throughout this dashboard: VB = 0.3 mm (uniform wear, finishing) and VB = 0.5-0.6 mm (roughing / non-uniform wear)."
+    "Shell Mill Arbor (Face Mill Mount, FA/MAS)": ToolHolderDefinition(
+        key="HLD-ARBOR",
+        name="Shell Mill / Face Mill Arbor (FA or MAS-BT Drive)",
+        applicable_family="milling",
+        rigidity_multiplier=1.02,
+        runout_accuracy="8-12 µm TIR at cutter OD",
+        description="Arbor-mounted face mills with radial key drive; large contact face transmits torque for heavy stock-removal face milling.",
+        best_practices="Torque the arbor nut to specification and verify backing-plate runout under 5 µm; a loose arbor turns uneven insert wear into premature cutter body failure."
     ),
-    "ISO 8688": StandardReference(
-        code="ISO 8688-1/2:1989",
-        title="Tool life testing in milling",
-        body="International Organization for Standardization (ISO)",
-        relevance="Governing standard for milling-cutter life test procedure and wear measurement (applies when the milling tooling module is used)."
+    "Standard ISO Turning Tool Holder (Rigid Clamp)": ToolHolderDefinition(
+        key="HLD-ISO-TURN",
+        name="Standard ISO Turning Tool Holder (Lever-Lock Clamping)",
+        applicable_family="turning",
+        rigidity_multiplier=1.00,
+        runout_accuracy="Seating repeatability < 10 µm",
+        description="Lever-lock or screw-clamp ISO shank holders for indexable turning inserts; the industry baseline for turning operations.",
+        best_practices="Baseline performance. Clean the insert seat and shim before indexing; a chip trapped under the shim destroys edge repeatability and accelerates localized wear."
     ),
-    "ISO 513": StandardReference(
-        code="ISO 513:2012",
-        title="Classification and application of hard cutting materials (ISO P/M/K/N/S/H grouping)",
-        body="International Organization for Standardization (ISO)",
-        relevance="Source of the workpiece ISO material groups (P, M, K, N, S, H) used to classify every workpiece in this database."
-    ),
-    "ASME B94.55M": StandardReference(
-        code="ASME B94.55M-1985 (R2009)",
-        title="Tool Life Testing with Single-Point Turning Tools",
-        body="American Society of Mechanical Engineers (ASME)",
-        relevance="U.S. counterpart to ISO 3685; cross-validates the Taylor extended tool-life model (C, n, x, y) formulation used in the physics engine."
-    ),
-    "Machining Data Handbook": StandardReference(
-        code="Machining Data Handbook, 3rd Ed.",
-        title="Machining Data Handbook",
-        body="Machinability Data Center / Metcut Research Associates",
-        relevance="Classical handbook starting-point ranges for cutting speed, feed and depth of cut by material family; used to sanity-check synthesized (independent) material pairings that fall outside curated Springer datasets."
-    ),
-    "Boothroyd & Knight": StandardReference(
-        code="Boothroyd, G. & Knight, W. A. (2006)",
-        title="Fundamentals of Machining and Machine Tools, 3rd Ed. (CRC Press)",
-        body="CRC Press / Taylor & Francis",
-        relevance="Standard textbook derivation of the Extended Taylor Tool Life Equation and the 3-stage flank wear progression model implemented in tool_physics.py."
+    "Dampened Anti-Vibration Boring Bar": ToolHolderDefinition(
+        key="HLD-DAMPENED",
+        name="Dampened Anti-Vibration Boring Bar / Turning Holder",
+        applicable_family="turning",
+        rigidity_multiplier=1.10,
+        runout_accuracy="Internal passive mass damper",
+        description="Boring bar or holder with an internal passive mass-tuned damper that absorbs chatter-inducing vibration at long overhang-to-diameter ratios (L/D > 4).",
+        best_practices="Mandatory for boring at L/D > 4 and for slender shafts in finishing; without damping, chatter marks and edge chipping dominate long-overhang turning."
     ),
 }
-
-
-def get_evidence_sources(
-    pairing: "MaterialToolPairing",
-    is_custom: bool = False,
-    pairing_key: Optional[str] = None,
-) -> Dict[str, object]:
-    """
-    Assembles a full evidence package for the Springer Research Reference tab.
-
-    Returns a dict with:
-      - primary: the SpringerReference already carried on the pairing
-      - is_literature_backed: True if 'primary' is a real peer-reviewed paper
-        (vs. a handbook-derived / synthesized starting point)
-      - related_studies: list of (key, MaterialToolPairing) from SPRINGER_DATABASE
-        sharing the same ISO group (and, where possible, a related tool class),
-        used to cross-validate a custom-synthesized pairing
-      - standards: list of StandardReference entries relevant to this pairing
-    """
-    primary = pairing.springer_ref
-    is_literature_backed = "Peer-reviewed" in primary.evidence_level
-
-    # Find related curated entries sharing the same ISO group for cross-validation.
-    related: List[Tuple[str, "MaterialToolPairing"]] = []
-    if pairing_key not in SPRINGER_DATABASE or is_custom:
-        for key, candidate in SPRINGER_DATABASE.items():
-            if candidate.workpiece_iso == pairing.workpiece_iso:
-                related.append((key, candidate))
-        # Prefer entries whose tool material shares a keyword with the current tool
-        tool_tokens = set(pairing.tool_material.replace("(", " ").replace(")", " ").split())
-        def _score(item):
-            _, cand = item
-            cand_tokens = set(cand.tool_material.replace("(", " ").replace(")", " ").split())
-            return -len(tool_tokens & cand_tokens)
-        related.sort(key=_score)
-        related = related[:3]
-
-    # Standards always include ISO 3685 (or ISO 8688 context note) + ISO 513 grouping.
-    standards = [STANDARDS_REFERENCES["ISO 3685"], STANDARDS_REFERENCES["ISO 513"]]
-    if is_custom or not is_literature_backed:
-        standards.append(STANDARDS_REFERENCES["ASME B94.55M"])
-        standards.append(STANDARDS_REFERENCES["Machining Data Handbook"])
-    standards.append(STANDARDS_REFERENCES["Boothroyd & Knight"])
-
-    return {
-        "primary": primary,
-        "is_literature_backed": is_literature_backed,
-        "related_studies": related,
-        "standards": standards,
-    }

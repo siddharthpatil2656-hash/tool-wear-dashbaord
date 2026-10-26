@@ -1,77 +1,46 @@
-# ==============================================================================
-# PowerShell One-Click Deployment Script for Tool Wear Forecasting Dashboard
-# Pushes code updates directly to GitHub to trigger auto-deployment on Streamlit Cloud
-# ==============================================================================
+# One-step deploy for the Tool Wear dashboard.
+# Usage:  powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+#         (optional)  .\deploy.ps1 -Port 8502 -SkipInstall
+param(
+    [int]$Port = 8501,
+    [switch]$SkipInstall
+)
 
 $ErrorActionPreference = "Stop"
+Set-Location -LiteralPath $PSScriptRoot
+Write-Host "Deploying dashboard from: $PSScriptRoot" -ForegroundColor Cyan
 
-Write-Host "==================================================================" -ForegroundColor Cyan
-Write-Host "DEPLOYING TOOL WEAR DASHBOARD & ML SPRINGER ENGINE TO GITHUB" -ForegroundColor Cyan
-Write-Host "==================================================================" -ForegroundColor Cyan
+$python = Get-Command python -ErrorAction SilentlyContinue
+if (-not $python) { Write-Error "Python was not found. Install Python and add it to PATH."; exit 1 }
 
-# 1. Locate Git executable
-$gitPath = ""
-if (Get-Command git -ErrorAction SilentlyContinue) {
-    $gitPath = "git"
-} else {
-    $candidates = Get-ChildItem -Path "C:\Users\Siddharth Patil\AppData\Local\GitHubDesktop" -Filter "git.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-    if ($candidates) {
-        $gitPath = $candidates[0]
-    } elseif (Test-Path "C:\Program Files\Git\cmd\git.exe") {
-        $gitPath = "C:\Program Files\Git\cmd\git.exe"
+if (-not $SkipInstall) {
+    Write-Host "Checking dependencies..." -ForegroundColor Cyan
+    & $python.Source -c "import streamlit, pandas, numpy, plotly, reportlab, sklearn, openpyxl, pdfplumber, PIL" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Installing requirements..." -ForegroundColor Yellow
+        & $python.Source -m pip install -r requirements.txt
+        if ($LASTEXITCODE -ne 0) { Write-Error "Dependency install failed."; exit 1 }
     }
 }
 
-if (-not $gitPath) {
-    Write-Error "Git executable could not be found. Please ensure Git is installed."
-    exit 1
+Write-Host "Compiling check..." -ForegroundColor Cyan
+& $python.Source -m py_compile app.py optimizer.py calibration.py springer_database.py tool_physics.py cost_model.py gcode_optimizer.py ml_model.py readings_import.py
+if ($LASTEXITCODE -ne 0) { Write-Error "Compile check failed."; exit 1 }
+
+Write-Host "Running test suite..." -ForegroundColor Cyan
+& $python.Source test_suite.py
+if ($LASTEXITCODE -ne 0) { Write-Error "Tests failed; not launching."; exit 1 }
+
+# Free the port if an older instance is still running
+$busy = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if ($busy) {
+    Write-Host "Port $Port is in use; stopping the old instance..." -ForegroundColor Yellow
+    $busy | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+    Start-Sleep -Seconds 1
 }
 
-Write-Host "`n[1/5] Using Git binary at: $gitPath" -ForegroundColor Green
-
-# 2. Check if git repository is initialized
-if (-not (Test-Path ".git")) {
-    Write-Host "`n[2/5] Initializing local git repository..." -ForegroundColor Yellow
-    & $gitPath init
-    & $gitPath branch -M main
-    & $gitPath remote add origin "https://github.com/siddharthpatil2656-hash/tool-wear-dashbaord.git"
-} else {
-    Write-Host "`n[2/5] Git repository already initialized." -ForegroundColor Green
-    # Verify remote URL
-    $existingRemote = & $gitPath remote get-url origin 2>$null
-    if (-not $existingRemote) {
-        & $gitPath remote add origin "https://github.com/siddharthpatil2656-hash/tool-wear-dashbaord.git"
-    }
-}
-
-# 3. Stage changes
-Write-Host "`n[3/5] Staging files for commit..." -ForegroundColor Yellow
-& $gitPath add .
-
-# 4. Commit changes
-Write-Host "`n[4/5] Committing changes..." -ForegroundColor Yellow
-$commitMsg = "Integrate Springer Nature API client and ML literature analysis engine"
-$status = & $gitPath status --porcelain
-if ($status) {
-    & $gitPath commit -m $commitMsg
-    Write-Host " -> Changes committed successfully." -ForegroundColor Green
-} else {
-    Write-Host " -> No changes to commit (working tree clean)." -ForegroundColor Yellow
-}
-
-# 5. Push to GitHub
-Write-Host "`n[5/5] Pushing updates to GitHub (main branch)..." -ForegroundColor Yellow
-try {
-    & $gitPath push -u origin main
-    Write-Host "`n==================================================================" -ForegroundColor Green
-    Write-Host "SUCCESS: Pushed to https://github.com/siddharthpatil2656-hash/tool-wear-dashbaord" -ForegroundColor Green
-    Write-Host "Live App: https://siddharthpatil2656-hash-tool-wear-dashbaord.streamlit.app" -ForegroundColor Cyan
-    Write-Host "Streamlit Cloud will automatically detect and deploy these changes in ~60s." -ForegroundColor Cyan
-    Write-Host "==================================================================" -ForegroundColor Green
-} catch {
-    Write-Host "`n[NOTE] Standard push encountered an error: $_" -ForegroundColor Yellow
-    Write-Host "Retrying with fetch/rebase..." -ForegroundColor Yellow
-    & $gitPath fetch origin main
-    & $gitPath rebase origin/main
-    & $gitPath push origin main
-}
+$env:STREAMLIT_BROWSER_GATHER_USAGE_STATS = "false"
+$env:NO_PROXY = "localhost,127.0.0.1"
+Write-Host "Starting dashboard at http://127.0.0.1:$Port  (Ctrl+C to stop)" -ForegroundColor Green
+Start-Process "http://127.0.0.1:$Port"
+& $python.Source -m streamlit run app.py --server.address 127.0.0.1 --server.port $Port --browser.gatherUsageStats false
