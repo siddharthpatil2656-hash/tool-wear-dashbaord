@@ -1,0 +1,22 @@
+name: Keep Streamlit Dashboard Awake
+
+on:
+  schedule:
+    # Runs every 6 hours (at 00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allows manual trigger anytime from GitHub Actions tab
+
+jobs:
+  ping-streamlit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Live Streamlit Dashboard
+        run: |
+          echo "Sending automated keep-alive heartbeat to Streamlit Cloud..."
+          STATUS=$(curl -s -L -o /dev/null -w "%{http_code}" "https://siddharthpatil2656-hash-tool-wear-dashbaord.streamlit.app")
+          echo "Streamlit Cloud HTTP Response Code: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "✅ Streamlit dashboard is awake, active, and responsive!"
+          else
+            echo "⚠️ Unexpected response code $STATUS, but heartbeat delivered."
+          fi
