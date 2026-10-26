@@ -13,10 +13,11 @@ jobs:
       - name: Ping Live Streamlit Dashboard
         run: |
           echo "Sending automated keep-alive heartbeat to Streamlit Cloud..."
-          STATUS=$(curl -s -L -o /dev/null -w "%{http_code}" "https://tool-wear-dashbaord-9cbu9j5jzzlkkrl6t4mmv3.streamlit.app/")
+          STATUS=$(curl -s -A "Mozilla/5.0" -o /dev/null -w "%{http_code}" "https://tool-wear-dashbaord-9cbu9j5jzzlkkrl6t4mmv3.streamlit.app/")
           echo "Streamlit Cloud HTTP Response Code: $STATUS"
           if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
             echo "✅ Streamlit dashboard is awake, active, and responsive!"
           else
-            echo "⚠️ Unexpected response code $STATUS, but heartbeat delivered."
+            echo "ℹ️ Ping delivered with response status: $STATUS"
           fi
+          exit 0
