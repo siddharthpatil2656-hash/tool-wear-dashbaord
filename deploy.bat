@@ -10,7 +10,7 @@ if %ERRORLEVEL% EQU 0 (
     echo.
     echo ==================================================================
     echo SUCCESS: All files pushed to GitHub successfully!
-    echo Live App: https://siddharthpatil2656-hash-tool-wear-dashbaord.streamlit.app
+    echo Live App: https://tool-wear-dashbaord-9cbu9j5jzzlkkrl6t4mmv3.streamlit.app/
     echo Streamlit Cloud will update automatically in ~60 seconds.
     echo ==================================================================
 ) else (
